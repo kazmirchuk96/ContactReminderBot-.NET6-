@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using System.Text.RegularExpressions;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
@@ -20,7 +21,7 @@ namespace ContactReminderBot_NET6_
 
         //-----------------------------------------------------------------------------------------
 
-        const string fileName = @"groups.json";
+        private const string fileName = @"groups.json";
         //const long managerChatId = -611718767;//chatID канала через который управляем ботом
         //const long managerChatId = 5117974777;//chat id рабочего телеграмма
         const long managerChatId = 347327196; //chat id моего личного телеграма
@@ -54,18 +55,27 @@ namespace ContactReminderBot_NET6_
 
                     if (message.Chat.Title != null)
                     {
-                        group = new TelegramGroup(message.Chat.Id, message.Chat.Title);
-                        listGroups.Add(group);//добавляем группу в List
-                        WritingListOfGroupsToFile();//запись списка групп в JsonFile
-                        await botClient.SendTextMessageAsync(managerChatId, $"Група \"{message.Chat.Title}\" успішно додана ✅ \n\nНадішли шаблон повідомлення, використовуючин наступні коди:\n\n[smile] – смайлик\n[greeting] – привітання\n[date] – дата завтра\n[waitingphrase] – фраза, що ставитимется в кінці повідомлення (нариклад, \"Всії чекаємо!\"");
-                        newGroup = true;
+                        //Проверка на наличие этой же группы в списке, если нет до добавляем
+                        if (listGroups.Where(x => x.Name == message.Chat.Title).ToList().Count != 0)
+                        {
+                            await botClient.SendTextMessageAsync(managerChatId, $"❌ Група \"{message.Chat.Title}\" вже існує в списку груп\n\nПереглядати шаблони груп та змінювати їх ти можеш використовуючи команду /template");
+                        }
+                        else
+                        {
+                            group = new TelegramGroup(message.Chat.Id, message.Chat.Title);
+                            listGroups.Add(group);//добавляем группу в List
+                            WritingListOfGroupsToFile();//запись списка групп в JsonFile
+                            await botClient.SendTextMessageAsync(managerChatId, $"✅ Група \"{message.Chat.Title}\" успішно додана!\n\nНадішли шаблон повідомлення, використовуючин наступні коди:\n\n[smile] – смайлик\n[greeting] – привітання+смайлик\n[date] – дата завтра\n[waitingphrase] – фраза в кінці повідомлення + смайлик");
+                            newGroup = true;
+                        }
                     }
                 }
                 else if (message.Chat.Id == managerChatId && newGroup)//пользователь добавил группу, ждём от него шаблон для напоминание
                 {
                     if (listGroups != null) listGroups[listGroups.Count - 1].TextTemplate = message.Text;
                     WritingListOfGroupsToFile();//запись списка групп в JsonFile
-                    await botClient.SendTextMessageAsync(message.Chat, $"Шаблон успішно доданий! Переглядати шаблони та змінювати їх ти можеш використовуючи команду /template");
+                    await botClient.SendTextMessageAsync(message.Chat, $"✅ Шаблон успішно доданий! Нижче направляю приклад повідомлення згідно твого шаблону.\n\nПереглядати шаблони груп та змінювати їх ти можеш використовуючи команду /template");
+                    await botClient.SendTextMessageAsync(message.Chat, TextForReminding(message.Text));
                     newGroup = false;
                 }
                 else if (message.Chat.Id == managerChatId && message.Text == "/remind")//отправляем напоминание 
@@ -102,7 +112,7 @@ namespace ContactReminderBot_NET6_
                     {
                         if (!numbers.Contains(symbol))
                         {
-                            await botClient.SendTextMessageAsync(message.Chat, $"Повторіть введення");
+                            await botClient.SendTextMessageAsync(message.Chat, $"Повтори введення");
                             inputMessageIsCorrect = false;
                             break;
                         }
@@ -115,7 +125,7 @@ namespace ContactReminderBot_NET6_
                         for (int i = 0; i < arrayNumbers.Length; i++)
                         {
                             group = listGroups[int.Parse(arrayNumbers[i]) - 1];
-                            await botClient.SendTextMessageAsync(message.Chat, $"Повідомлення в групу \"{group.Name}\" успішно відправлено");
+                            await botClient.SendTextMessageAsync(message.Chat, $"✅ Повідомлення в групу \"{group.Name}\" успішно відправлено");
                             await botClient.SendTextMessageAsync(group.ID, TextForReminding(group.TextTemplate),ParseMode.Html);
                         }
                         waitingNumbersForRemind = false;
@@ -145,7 +155,7 @@ namespace ContactReminderBot_NET6_
                 {
                     await botClient.SendTextMessageAsync(message.Chat, $"Шаблон цієї групи:");
                     await botClient.SendTextMessageAsync(message.Chat, listGroups[int.Parse(message.Text)-1].TextTemplate);
-                    await botClient.SendTextMessageAsync(message.Chat, $"Для зміни шаблону відправ у відповідь новий");
+                    await botClient.SendTextMessageAsync(message.Chat, $"Для зміни шаблону відправ у відповідь новий шаблон повідомлення, використовуючин наступні коди:\n\n[smile] – смайлик\n[greeting] – привітання+смайлик\n[date] – дата завтра\n[waitingphrase] – фраза в кінці повідомлення + смайлик");
                     waitingNumberGroupForTemplate = false;
                     waitingNewTemplate = true;
                     groupId = listGroups[int.Parse(message.Text) - 1].ID;
@@ -156,7 +166,8 @@ namespace ContactReminderBot_NET6_
                     group.TextTemplate = message.Text;
                     WritingListOfGroupsToFile();
                     waitingNewTemplate = false;
-                    await botClient.SendTextMessageAsync(message.Chat, $"Шаблон групи \"{group.Name}\" успішно змінений");
+                    await botClient.SendTextMessageAsync(message.Chat, $"✅ Шаблон успішно змінений! Нижче направляю приклад повідомлення згідно твого шаблону.\n\nВідправити нагадування ти можеш використовуючи команду /remind");
+                    await botClient.SendTextMessageAsync(message.Chat, TextForReminding(message.Text));
                 }
             }
         }
@@ -165,23 +176,35 @@ namespace ContactReminderBot_NET6_
 
         public static string TextForReminding(string textTamplateWithCodes)
         {
-            string smilesForGreetings = " 😊☀️😉👋😀🤩😁😃☺️🙂😉🤓👐🙌🤝🖐👋🤗✌";
-
-            /*var tes1 = Char.ConvertToUtf32('😊');
-            string tes2 = "😊";
-            var ccc = '\U000026C4';*/
-
-
-            string smilesForMaintText = "🔹🔸✅👨‍💻➡️👉👨‍💻👩‍💻🚀💻❇️▪️";
-            string[] smilesForWaitiongPhrase = new[] { "💙💛", "💙", "💛", "😊","😉","🤩","😀","😁","💪","🐼","☺️","😌","😉","🙂","👐","🙌","🤗","😺","✌️","👩","‍💻","🧑","‍💻","👨","‍💻","🚀" };
+            string[] smilesForGreetings = new[] {"","😊","☀️","😉","👋","😀","🤩","😁","😃","☺️","🙂","😉","🤓","👐","🙌","🤝","🖐","👋","🤗","✌"};
+            string[] smilesForMaintText = new[] {"🔹","🔸","✅", "‍👨‍💻", "➡️","👉","🚀","❇️","▪️" };
+            string[] smilesForWaitiongPhrase = new[] { "","💙💛", "💙", "💛", "😊","😉","🤩","😀","😁","💪","🐼","☺️","😌","😉","🙂","👐","🙌","🤗","😺","✌️","🚀" };
             
-            string[] greetings = new [] { "Всім привіт!", "Доброго дня!", "Привіт!", "Добрий день!"};
-            string[] waitingPreases = new[] { "Всіх чекаємо!", "Всіх з нетерпінням чекаємо!", "Всіх чекатимемо!", "Чекаємо вас!", "З нетерпінням чекаємо вас!"};
+            string[] greetings = new [] { "Всім привіт! ", "Доброго дня! ", "Привіт! ", "Добрий день! ", "Всім привіт", "Доброго дня", "Привіт", "Добрий день" };
+            string[] waitingPhrases = new[] { "Всіх чекаємо! ", "Всіх з нетерпінням чекаємо! ", "Всіх чекатимемо! ", "Чекаємо вас! ", "З нетерпінням чекаємо вас! ", "Всіх чекаємо", "Всіх з нетерпінням чекаємо", "Всіх чекатимемо", "Чекаємо вас", "З нетерпінням чекаємо вас", "До зустрічі! ", "До зустрічі"};
 
             Random rand = new Random();
 
             //замена кода [greetings] на приветствие и смайлик
-            string finalText = textTamplateWithCodes.Replace("[greeting]", greetings[rand.Next(0, greetings.Length)]);
+            string finalText = textTamplateWithCodes.Replace("[greeting]", greetings[rand.Next(0, greetings.Length)] + smilesForGreetings[rand.Next(0,smilesForGreetings.Length)]);
+
+            //замена кода [waitingphrase] на фразу и смайлик
+            finalText = finalText.Replace("[waitingphrase]", waitingPhrases[rand.Next(0, waitingPhrases.Length)] + smilesForWaitiongPhrase[rand.Next(0,smilesForWaitiongPhrase.Length)]);
+
+            //замена кода [smile], делаем в цикле, потому что нужно чтоб все смайлики были разными
+            finalText = finalText.Replace("[smile]", "smile");//убмраем [], потому что это элемент регулярного выражения
+            while (finalText.Contains("smile"))
+            {
+                /*Регулярное выражение, которое заменяет первое вхождение [smile] на смайлик*/
+                Regex reg = new Regex("smile");
+                finalText = reg.Replace(finalText, smilesForMaintText[rand.Next(0,smilesForMaintText.Length)]+" ", 1);
+            }
+
+            //замена кода [date] на завтрашнюю дату
+            var today = DateTime.Today;
+            string tomorrow = today.AddDays(1).ToShortDateString();
+
+            finalText = finalText.Replace("[date]", $"({tomorrow.Remove(tomorrow.Length-5)})");//замена на звтрашнюю дату без года
 
             return finalText;
         }

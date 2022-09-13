@@ -15,9 +15,9 @@ namespace ContactReminderBot_NET6_
         {
             ID = iD;
             Name = name;
-            TextTemplate = String.Empty;
+            TextTemplate = "No template";
         }
-        public TelegramGroup() : this(-1, "Noname")
+        public TelegramGroup() : this(-1, "No name")
         { }
     }
 }
