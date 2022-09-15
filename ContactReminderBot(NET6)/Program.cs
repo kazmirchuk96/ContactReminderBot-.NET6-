@@ -22,19 +22,16 @@ namespace ContactReminderBot_NET6_
         //-----------------------------------------------------------------------------------------
 
         private const string fileName = @"groups.json";
-        //const long managerChatId = -611718767;//chatID канала через который управляем ботом
         //const long managerChatId = 5117974777;//chat id рабочего телеграмма
         const long managerChatId = 347327196; //chat id моего личного телеграма
-
         const string numbers = "01234567890,";
-
         static long groupId;
 
         public static async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update,CancellationToken cancellationToken)
         {
             var group = new TelegramGroup();
 
-            if (update.Type == Telegram.Bot.Types.Enums.UpdateType.Message)
+            if (update.Type == UpdateType.Message)
             {
                 var message = update.Message;
 
@@ -72,7 +69,7 @@ namespace ContactReminderBot_NET6_
                 }
                 else if (message.Chat.Id == managerChatId && newGroup)//пользователь добавил группу, ждём от него шаблон для напоминание
                 {
-                    if (listGroups != null) listGroups[listGroups.Count - 1].TextTemplate = message.Text;
+                    listGroups[listGroups.Count - 1].TextTemplate = message.Text;
                     WritingListOfGroupsToFile();//запись списка групп в JsonFile
                     await botClient.SendTextMessageAsync(message.Chat, $"✅ Шаблон успішно доданий! Нижче направляю приклад повідомлення згідно твого шаблону.\n\nПереглядати шаблони груп та змінювати їх ти можеш використовуючи команду /template");
                     await botClient.SendTextMessageAsync(message.Chat, TextForReminding(message.Text));
@@ -86,35 +83,35 @@ namespace ContactReminderBot_NET6_
                     waitingNewTemplate = false; //ждём от пользователя новый шаблон (в случае если он захотел его изменить), но он вводит /remind
                     
                     string outputMessage = "Введи номери груп через кому (1, 2, 3), яким необхідно відправити нагадування про заняття:\n\n";
-                    
-                    if (listGroups != null)
+
+                    foreach (var item in listGroups)
                     {
-                        foreach (var item in listGroups)
-                        {
-                            outputMessage += $"{listGroups.IndexOf(item) + 1} – {item.Name}\n";
-                        }
-                        await botClient.SendTextMessageAsync(message.Chat, outputMessage);
+                        outputMessage += $"{listGroups.IndexOf(item) + 1} – {item.Name}\n";
                     }
+                    await botClient.SendTextMessageAsync(message.Chat, outputMessage);
                     waitingNumbersForRemind = true;
                 }
                 else if (message.Chat.Id == managerChatId && waitingNumbersForRemind && message.Text != "/template" && message.Text !="/start" && message.Text!="/remind")
                 {
                     bool inputMessageIsCorrect = true;
-                    string inputMessage = message.Text;//строка с номерами групп, которым будем напоминать "1,2,3,4,5"
-                    
-                    for (int i = 0; i < inputMessage.Length / 2; i++)//удаляем лишние пробелы
-                    {
-                        inputMessage = inputMessage.Replace(" ", "");
-                    }
+                    string? inputMessage = message.Text;//строка с номерами групп, которым будем напоминать "1,2,3,4,5"
 
-                    //проверка на правлиьность ввода в строке должны быть только числа и запятая - вынести в метод
-                    foreach (var symbol in inputMessage)
+                    if (inputMessage != null)
                     {
-                        if (!numbers.Contains(symbol))
+                        for (var i = 0; i < inputMessage.Length / 2; i++) //удаляем лишние пробелы
                         {
-                            await botClient.SendTextMessageAsync(message.Chat, $"Повтори введення");
-                            inputMessageIsCorrect = false;
-                            break;
+                            inputMessage = inputMessage.Replace(" ", "");
+                        }
+
+                        //проверка на правлиьность ввода в строке должны быть только числа и запятая - вынести в метод
+                        foreach (var symbol in inputMessage)
+                        {
+                            if (!numbers.Contains(symbol))
+                            {
+                                await botClient.SendTextMessageAsync(message.Chat, $"Повтори введення");
+                                inputMessageIsCorrect = false;
+                                break;
+                            }
                         }
                     }
 
@@ -176,17 +173,66 @@ namespace ContactReminderBot_NET6_
 
         public static string TextForReminding(string textTamplateWithCodes)
         {
-            string[] smilesForGreetings = new[] {"","😊","☀️","😉","👋","😀","🤩","😁","😃","☺️","🙂","😉","🤓","👐","🙌","🤝","🖐","👋","🤗","✌"};
+            string[] smilesForGreetings = new[] {"😊","☀️","😉","👋","😀","🤩","😁","😃","☺️","🙂","😉","🤓","👐","🙌","🤝","🖐","👋","🤗","✌","🤩","😜","🤪","💪","😁","🙃","😎","🥳","👾","🤖","👻","😺","😸","😻","✊","🦾"};
             string[] smilesForMaintText = new[] {"🔹","🔸","✅", "‍👨‍💻", "➡️","👉","🚀","❇️","▪️" };
             string[] smilesForWaitiongPhrase = new[] { "","💙💛", "💙", "💛", "😊","😉","🤩","😀","😁","💪","🐼","☺️","😌","😉","🙂","👐","🙌","🤗","😺","✌️","🚀" };
             
-            string[] greetings = new [] { "Всім привіт! ", "Доброго дня! ", "Привіт! ", "Добрий день! ", "Всім привіт", "Доброго дня", "Привіт", "Добрий день" };
-            string[] waitingPhrases = new[] { "Всіх чекаємо! ", "Всіх з нетерпінням чекаємо! ", "Всіх чекатимемо! ", "Чекаємо вас! ", "З нетерпінням чекаємо вас! ", "Всіх чекаємо", "Всіх з нетерпінням чекаємо", "Всіх чекатимемо", "Чекаємо вас", "З нетерпінням чекаємо вас", "До зустрічі! ", "До зустрічі"};
+            string[] greetingsFirstPart = new []
+            {
+                "Хелоу!",
+                "Хелоу, еврібаді!",
+                "Тук-тук!",
+                "Добрий день, everybody!",
+                "Вітаю вас, земляни!",
+                "Алоха!",
+                "Бонжур!",
+                "Привітики!",
+                "Привіт",
+                "Всім привіт!",
+                "Вітаю!",
+                "Дратуті!",
+                "Хола!",
+                "Салют!",
+                "Як настрій?",
+                "Як і обіцяв, ось і я!)",
+                "Хай!",
+                "Ватсап!"
+            };
+
+            string[] greetingsSecondPart = new[]
+            {
+                "Я бот-помічник IT Академії CONTACT!",
+                "На зв'язку бот-помічник IT Академії CONTACT!",
+                "Я телеграм-бот помічник IT Академії CONTACT!",
+                "Я віртуальний бот-помічник IT Академії CONTACT!",
+                "Я бот-помічник IT Академії CONTACT!",
+                "Я бот-помічник IT Академії CONTACT",
+                "На зв'язку бот-помічник IT Академії CONTACT",
+                "Я телеграм-бот помічник IT Академії CONTACT",
+                "Я віртуальний бот-помічник IT Академії CONTACT",
+                "Я бот-помічник IT Академії CONTACT",
+                "На зв'язку телеграм-бот IT Академії CONTACT!"
+            };
+            string[] waitingPhrases = new[]
+            {
+                "Всіх чекаю!",
+                "Всіх з нетерпінням чекаю!",
+                "До зустрічі!",
+                "До зустрічі",
+                "Не забуваємо робити домашку!",
+                "Що там з домашкою?",
+                "Надіюсь, що ви вже зробили домашку! Всіх чекаю на занятті!",
+                "Як справи з домашкою?",
+                "До завтра!",
+                "До завтра",
+                "Всім гарного дня!",
+                "Не забудьте про домашку!"
+            };
 
             Random rand = new Random();
 
             //замена кода [greetings] на приветствие и смайлик
-            string finalText = textTamplateWithCodes.Replace("[greeting]", greetings[rand.Next(0, greetings.Length)] + smilesForGreetings[rand.Next(0,smilesForGreetings.Length)]);
+            string finalText = textTamplateWithCodes.Replace("[greeting]", greetingsFirstPart[rand.Next(0, greetingsFirstPart.Length)] + " "+ greetingsSecondPart[rand.Next(0, greetingsSecondPart.Length)] + smilesForGreetings[rand.Next(0,smilesForGreetings.Length)]);
 
             //замена кода [waitingphrase] на фразу и смайлик
             finalText = finalText.Replace("[waitingphrase]", waitingPhrases[rand.Next(0, waitingPhrases.Length)] + smilesForWaitiongPhrase[rand.Next(0,smilesForWaitiongPhrase.Length)]);
