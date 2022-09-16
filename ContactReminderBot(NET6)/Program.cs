@@ -22,8 +22,8 @@ namespace ContactReminderBot_NET6_
         //-----------------------------------------------------------------------------------------
 
         private const string fileName = @"groups.json";
-        //const long managerChatId = 5117974777;//chat id рабочего телеграмма
-        const long managerChatId = 347327196; //chat id моего личного телеграма
+        const long managerChatId = 5117974777;//chat id рабочего телеграмма
+        //const long managerChatId = 347327196; //chat id моего личного телеграма
         const string numbers = "01234567890,";
         static long groupId;
 
@@ -67,7 +67,7 @@ namespace ContactReminderBot_NET6_
                         }
                     }
                 }
-                else if (message.Chat.Id == managerChatId && newGroup)//пользователь добавил группу, ждём от него шаблон для напоминание
+                else if (message.Text != null && message.Chat.Id == managerChatId && newGroup)//пользователь добавил группу, ждём от него шаблон для напоминание
                 {
                     listGroups[listGroups.Count - 1].TextTemplate = message.Text;
                     WritingListOfGroupsToFile();//запись списка групп в JsonFile
@@ -75,7 +75,7 @@ namespace ContactReminderBot_NET6_
                     await botClient.SendTextMessageAsync(message.Chat, TextForReminding(message.Text));
                     newGroup = false;
                 }
-                else if (message.Chat.Id == managerChatId && message.Text == "/remind")//отправляем напоминание 
+                else if (message.Text != null && message.Chat.Id == managerChatId && message.Text == "/remind")//отправляем напоминание 
                 {
                     waitingNumberGroupForTemplate = false; //ждём от пользователя номер числа для просмотра шаблона, но он вводит /remind
                     waitingNumbersForRemind = false; //ждём от пользователя номера чисел для напоминаний, но он вводит /remind
@@ -91,24 +91,24 @@ namespace ContactReminderBot_NET6_
                     await botClient.SendTextMessageAsync(message.Chat, outputMessage);
                     waitingNumbersForRemind = true;
                 }
-                else if (message.Chat.Id == managerChatId && waitingNumbersForRemind && message.Text != "/template" && message.Text !="/start" && message.Text!="/remind")
+                else if (message.Text != null && message.Chat.Id == managerChatId && waitingNumbersForRemind && message.Text != "/template" && message.Text !="/start" && message.Text!="/remind")
                 {
                     bool inputMessageIsCorrect = true;
                     string? inputMessage = message.Text;//строка с номерами групп, которым будем напоминать "1,2,3,4,5"
 
                     if (inputMessage != null)
                     {
-                        for (var i = 0; i < inputMessage.Length / 2; i++) //удаляем лишние пробелы
-                        {
-                            inputMessage = inputMessage.Replace(" ", "");
-                        }
+                        inputMessage = Regex.Replace(inputMessage, @"\s+", " ");//удаление лишних пробелов
+                        inputMessage = Regex.Replace(inputMessage, @",+", ",");//заменяем 2 запятые на одну
+                        inputMessage = Regex.Replace(inputMessage, @",$", "");//удаляем запятую с конца строки
+                        inputMessage = Regex.Replace(inputMessage, @"^,", "");//удаляем запятую с начала строки
 
                         //проверка на правлиьность ввода в строке должны быть только числа и запятая - вынести в метод
                         foreach (var symbol in inputMessage)
                         {
                             if (!numbers.Contains(symbol))
                             {
-                                await botClient.SendTextMessageAsync(message.Chat, $"Повтори введення");
+                                await botClient.SendTextMessageAsync(message.Chat, $"❌ Повтори введення");
                                 inputMessageIsCorrect = false;
                                 break;
                             }
@@ -119,16 +119,23 @@ namespace ContactReminderBot_NET6_
                     {
                         var arrayNumbers = inputMessage.Split(',');
 
-                        for (int i = 0; i < arrayNumbers.Length; i++)
+                        for (var i = 0; i < arrayNumbers.Length; i++)
                         {
-                            group = listGroups[int.Parse(arrayNumbers[i]) - 1];
-                            await botClient.SendTextMessageAsync(message.Chat, $"✅ Повідомлення в групу \"{group.Name}\" успішно відправлено");
-                            await botClient.SendTextMessageAsync(group.ID, TextForReminding(group.TextTemplate),ParseMode.Html);
+                            if (int.Parse(arrayNumbers[i]) <= listGroups.Count && int.Parse(arrayNumbers[i]) !=0)
+                            {
+                                group = listGroups[int.Parse(arrayNumbers[i]) - 1];
+                                await botClient.SendTextMessageAsync(message.Chat, $"✅ Повідомлення в групу \"{group.Name}\" успішно відправлено");
+                                await botClient.SendTextMessageAsync(group.ID, TextForReminding(group.TextTemplate));
+                            }
+                            else
+                            {
+                                await botClient.SendTextMessageAsync(message.Chat, $"❌ Не існує групи з номером {int.Parse(arrayNumbers[i])}");
+                            }
                         }
                         waitingNumbersForRemind = false;
                     }
                 }
-                else if (message.Chat.Id == managerChatId && message.Text == "/template")
+                else if (message.Text != null && message.Chat.Id == managerChatId && message.Text == "/template")
                 {
                     waitingNumberGroupForTemplate = false; //ждём от пользователя номер числа для просмотра шаблона, но он вводит /template
                     waitingNumbersForRemind = false; //ждём от пользователя номера чисел для напоминаний, но он вводит /template
@@ -148,7 +155,7 @@ namespace ContactReminderBot_NET6_
 
                     waitingNumberGroupForTemplate = true;
                 }
-                else if (message.Chat.Id == managerChatId && waitingNumberGroupForTemplate)
+                else if (message.Text != null && message.Chat.Id == managerChatId && waitingNumberGroupForTemplate)
                 {
                     await botClient.SendTextMessageAsync(message.Chat, $"Шаблон цієї групи:");
                     await botClient.SendTextMessageAsync(message.Chat, listGroups[int.Parse(message.Text)-1].TextTemplate);
@@ -157,7 +164,7 @@ namespace ContactReminderBot_NET6_
                     waitingNewTemplate = true;
                     groupId = listGroups[int.Parse(message.Text) - 1].ID;
                 }
-                else if (message.Chat.Id == managerChatId && waitingNewTemplate)
+                else if (message.Text != null && message.Chat.Id == managerChatId && waitingNewTemplate)
                 {
                     group = listGroups.Where(x => x.ID == groupId).First();
                     group.TextTemplate = message.Text;
@@ -166,6 +173,10 @@ namespace ContactReminderBot_NET6_
                     await botClient.SendTextMessageAsync(message.Chat, $"✅ Шаблон успішно змінений! Нижче направляю приклад повідомлення згідно твого шаблону.\n\nВідправити нагадування ти можеш використовуючи команду /remind");
                     await botClient.SendTextMessageAsync(message.Chat, TextForReminding(message.Text));
                 }
+                else if (message.Text != null && message.Chat.Id == managerChatId)
+                {
+                    await botClient.SendTextMessageAsync(message.Chat, $"Виберіть одну із команд:\n\n/remind - нагадування про заняття\n/template - перегляд та зміна шаблону\n/delete - видалення груп");
+                }
             }
         }
 
@@ -173,9 +184,9 @@ namespace ContactReminderBot_NET6_
 
         public static string TextForReminding(string textTamplateWithCodes)
         {
-            string[] smilesForGreetings = new[] {"😊","☀️","😉","👋","😀","🤩","😁","😃","☺️","🙂","😉","🤓","👐","🙌","🤝","🖐","👋","🤗","✌","🤩","😜","🤪","💪","😁","🙃","😎","🥳","👾","🤖","👻","😺","😸","😻","✊","🦾"};
-            string[] smilesForMaintText = new[] {"🔹","🔸","✅", "‍👨‍💻", "➡️","👉","🚀","❇️","▪️" };
-            string[] smilesForWaitiongPhrase = new[] { "","💙💛", "💙", "💛", "😊","😉","🤩","😀","😁","💪","🐼","☺️","😌","😉","🙂","👐","🙌","🤗","😺","✌️","🚀" };
+            string[] smilesForGreetings = {"","😀","😁","☺️","😊","🙂","😍","😜","🙃","🤓","😎","🤩","🤖","👾","👻","😺","😻","🙌","🤝","✌️","🤟","✋","🖐","👋","🦾","🐼"};
+            string[] smilesForMaintText = {"🔹","🔸","✅","➡️","👉","👨‍💻","✨","🚀","📕","📗","📘","📙","📒","✅","▶️","➡️","📍","🖥","💻","✏️","⭕️","🔵"};
+            string[] smilesForWaitiongPhrase = { "", "💙💛", "💙","💛","💜","💚","🧡","❤️","😉","👌","🫶","👐","👍","🤗","😘","💪"};
             
             string[] greetingsFirstPart = new []
             {
@@ -190,13 +201,15 @@ namespace ContactReminderBot_NET6_
                 "Привіт",
                 "Всім привіт!",
                 "Вітаю!",
-                "Дратуті!",
                 "Хола!",
                 "Салют!",
                 "Як настрій?",
                 "Як і обіцяв, ось і я!)",
                 "Хай!",
-                "Ватсап!"
+                "Ватсап!",
+                "Доброго дня!",
+                "Добрий день!",
+                ""
             };
 
             string[] greetingsSecondPart = new[]
@@ -205,28 +218,21 @@ namespace ContactReminderBot_NET6_
                 "На зв'язку бот-помічник IT Академії CONTACT!",
                 "Я телеграм-бот помічник IT Академії CONTACT!",
                 "Я віртуальний бот-помічник IT Академії CONTACT!",
-                "Я бот-помічник IT Академії CONTACT!",
-                "Я бот-помічник IT Академії CONTACT",
-                "На зв'язку бот-помічник IT Академії CONTACT",
-                "Я телеграм-бот помічник IT Академії CONTACT",
-                "Я віртуальний бот-помічник IT Академії CONTACT",
-                "Я бот-помічник IT Академії CONTACT",
-                "На зв'язку телеграм-бот IT Академії CONTACT!"
+                "На зв'язку телеграм-бот IT Академії CONTACT!",
             };
             string[] waitingPhrases = new[]
             {
                 "Всіх чекаю!",
                 "Всіх з нетерпінням чекаю!",
                 "До зустрічі!",
-                "До зустрічі",
                 "Не забуваємо робити домашку!",
                 "Що там з домашкою?",
-                "Надіюсь, що ви вже зробили домашку! Всіх чекаю на занятті!",
+                "Надіюсь, що ви вже зробили домашку!",
                 "Як справи з домашкою?",
                 "До завтра!",
-                "До завтра",
                 "Всім гарного дня!",
-                "Не забудьте про домашку!"
+                "Не забудьте про домашку!",
+                "Всіх чекаю на занятті!"
             };
 
             Random rand = new Random();
