@@ -18,12 +18,14 @@ namespace ContactReminderBot_NET6_
         static bool waitingNumbersForRemind; //ожидаем что пользователь введёт числа групп которым будем напоминать
         static bool waitingNumberGroupForTemplate; //ожидаем, что пользователь введёт номер группы, шаблон которой он хочет просмотреть/изменить 
         static bool waitingNewTemplate; //ожидаем, что пользователь введёт новый шаблон
+        private static bool waitingNumberGroupForDeleting; //ожидаем, что пользователь введёт номер группы, которую нужно удалить
+        private static bool waitingNumberGroupForFreeMessage;//ожидаем, что пользователь введёт номера групп, которым нужно отправить свободное сообщение
 
         //-----------------------------------------------------------------------------------------
 
         private const string fileName = @"groups.json";
-        const long managerChatId = 5117974777;//chat id рабочего телеграмма
-        //const long managerChatId = 347327196; //chat id моего личного телеграма
+        //const long managerChatId = 5117974777;//chat id рабочего телеграмма
+        const long managerChatId = 347327196; //chat id моего личного телеграма
         const string numbers = "01234567890,";
         static long groupId;
 
@@ -45,10 +47,9 @@ namespace ContactReminderBot_NET6_
 
                 if (message.Text != null && message.Text.ToLower() == "/start")//введена команда start
                 {
-                    waitingNumberGroupForTemplate = false; //ждём от пользователя номер числа для просмотра шаблона, но он вводит /start
-                    waitingNumbersForRemind = false; //ждём от пользователя номера чисел для напоминаний, но он вводит /start
-                    newGroup = false;//ждём от пользователя шаблон для напоминания, но он вводит /start
-                    waitingNewTemplate = false; //ждём от пользователя новый шаблон (в случае если он захотел его изменить), но он вводит /start
+                    /* ждём от пользователя каку-то информацию (номер группы, текст шаблона, сообщение),
+                     * но он вводит текущую команду, поэтому ставим false флагу с ожиданием*/
+                    FlagManaging();
 
                     if (message.Chat.Title != null)
                     {
@@ -77,18 +78,12 @@ namespace ContactReminderBot_NET6_
                 }
                 else if (message.Text != null && message.Chat.Id == managerChatId && message.Text == "/remind")//отправляем напоминание 
                 {
-                    waitingNumberGroupForTemplate = false; //ждём от пользователя номер числа для просмотра шаблона, но он вводит /remind
-                    waitingNumbersForRemind = false; //ждём от пользователя номера чисел для напоминаний, но он вводит /remind
-                    newGroup = false;//ждём от пользователя шаблон для напоминания, но он вводит /remind
-                    waitingNewTemplate = false; //ждём от пользователя новый шаблон (в случае если он захотел его изменить), но он вводит /remind
-                    
-                    string outputMessage = "Введи номери груп через кому (1, 2, 3), яким необхідно відправити нагадування про заняття:\n\n";
+                    /* ждём от пользователя каку-то информацию (номер группы, текст шаблона, сообщение),
+                     * но он вводит текущую команду, поэтому ставим false флагу с ожиданием*/
+                    FlagManaging();
 
-                    foreach (var item in listGroups)
-                    {
-                        outputMessage += $"{listGroups.IndexOf(item) + 1} – {item.Name}\n";
-                    }
-                    await botClient.SendTextMessageAsync(message.Chat, outputMessage);
+                    string outputMessage = "Введи номери груп через кому (1, 2, 3), яким необхідно відправити нагадування про заняття:\n\n";
+                    await botClient.SendTextMessageAsync(message.Chat, outputMessage + OutputListOgGroups(), cancellationToken: cancellationToken);
                     waitingNumbersForRemind = true;
                 }
                 else if (message.Text != null && message.Chat.Id == managerChatId && waitingNumbersForRemind && message.Text != "/template" && message.Text !="/start" && message.Text!="/remind")
@@ -137,23 +132,32 @@ namespace ContactReminderBot_NET6_
                 }
                 else if (message.Text != null && message.Chat.Id == managerChatId && message.Text == "/template")
                 {
-                    waitingNumberGroupForTemplate = false; //ждём от пользователя номер числа для просмотра шаблона, но он вводит /template
-                    waitingNumbersForRemind = false; //ждём от пользователя номера чисел для напоминаний, но он вводит /template
-                    newGroup = false;//ждём от пользователя шаблон для напоминания, но он вводит /template
-                    waitingNewTemplate = false; //ждём от пользователя новый шаблон (в случае если он захотел его изменить), но он вводит /template
+                    /* ждём от пользователя каку-то информацию (номер группы, текст шаблона, сообщение),
+                     * но он вводит текущую команду, поэтому ставим false флагу с ожиданием*/
+                    FlagManaging();
 
                     string outputMessage = "Введи номер групи шаблон якої ти хочеш переглянути/змінити:\n\n";
-
-                    if (listGroups != null)
-                    {
-                        foreach (var item in listGroups)
-                        {
-                            outputMessage += $"{listGroups.IndexOf(item) + 1} – {item.Name}\n";
-                        }
-                        await botClient.SendTextMessageAsync(message.Chat, outputMessage);
-                    }
-
+                    await botClient.SendTextMessageAsync(message.Chat, outputMessage + OutputListOgGroups(), cancellationToken: cancellationToken);
+                    
                     waitingNumberGroupForTemplate = true;
+                }
+                else if (message.Text != null && message.Chat.Id == managerChatId && message.Text == "/delete")
+                {
+                    /* ждём от пользователя каку-то информацию (номер группы, текст шаблона, сообщение),
+                     * но он вводит текущую команду, поэтому ставим false флагу с ожиданием*/
+                    FlagManaging();
+                    string outputMessage = "Введи номер групи, яку ти хочеш видалити:\n\n";
+                    await botClient.SendTextMessageAsync(message.Chat, outputMessage + OutputListOgGroups(), cancellationToken: cancellationToken);
+                    waitingNumberGroupForDeleting = true;
+                }
+                else if (message.Text != null && message.Chat.Id == managerChatId && message.Text == "/message")//отправка свободного сообщения в группы
+                {
+                    /* ждём от пользователя каку-то информацию (номер группы, текст шаблона, сообщение),
+                     * но он вводит текущую команду, поэтому ставим false флагу с ожиданием*/
+                    FlagManaging();
+                    string outputMessage = "Введи номер групи, яку ти хочеш відправити повідомлення:\n\n";
+                    await botClient.SendTextMessageAsync(message.Chat, outputMessage + OutputListOgGroups(), cancellationToken: cancellationToken);
+                    waitingNumberGroupForFreeMessage = true;
                 }
                 else if (message.Text != null && message.Chat.Id == managerChatId && waitingNumberGroupForTemplate)
                 {
@@ -173,9 +177,16 @@ namespace ContactReminderBot_NET6_
                     await botClient.SendTextMessageAsync(message.Chat, $"✅ Шаблон успішно змінений! Нижче направляю приклад повідомлення згідно твого шаблону.\n\nВідправити нагадування ти можеш використовуючи команду /remind");
                     await botClient.SendTextMessageAsync(message.Chat, TextForReminding(message.Text));
                 }
+                else if (message.Text != null && message.Chat.Id == managerChatId && waitingNumberGroupForDeleting)
+                {
+                    listGroups.Remove(listGroups[int.Parse(message.Text) - 1]);
+                    waitingNumberGroupForDeleting = false;
+                    WritingListOfGroupsToFile();
+                    await botClient.SendTextMessageAsync(message.Chat, $"✅ Група успішно видалена");
+                }
                 else if (message.Text != null && message.Chat.Id == managerChatId)
                 {
-                    await botClient.SendTextMessageAsync(message.Chat, $"Виберіть одну із команд:\n\n/remind - нагадування про заняття\n/template - перегляд та зміна шаблону\n/delete - видалення груп");
+                    await botClient.SendTextMessageAsync(message.Chat, $"Виберіть одну із команд:\n\n/remind - Нагадування про заняття по заданому шаблону\n/template - Перегляд та зміна шаблону\n/message - Відправлення текстового повідомлення\n/delete - Видалення груп");
                 }
             }
         }
@@ -198,7 +209,7 @@ namespace ContactReminderBot_NET6_
                 "Алоха!",
                 "Бонжур!",
                 "Привітики!",
-                "Привіт",
+                "Привіт!",
                 "Всім привіт!",
                 "Вітаю!",
                 "Хола!",
@@ -275,13 +286,37 @@ namespace ContactReminderBot_NET6_
             listGroups = (data != string.Empty) ? JsonConvert.DeserializeObject<List<TelegramGroup>>(data) : new List<TelegramGroup>();
             return listGroups;
         }
+
+        //метод который формирует строку из списка групп с номерами для выывода
+        public static string OutputListOgGroups()
+        {
+            string outputMessage = string.Empty;
+            foreach (var item in listGroups)
+            {
+                outputMessage += $"{listGroups.IndexOf(item) + 1} – {item.Name}\n";
+            }
+
+            return outputMessage;
+        }
+
+        public static void FlagManaging()
+        {
+            waitingNumberGroupForTemplate = false; //ждём от пользователя номер числа для просмотра шаблона, но он вводит одну из команд
+            waitingNumbersForRemind = false; //ждём от пользователя номера чисел для напоминаний, но он вводит одну из команд
+            newGroup = false;//ждём от пользователя шаблон для напоминания, но он вводит одну из команд
+            waitingNewTemplate = false; //ждём от пользователя новый шаблон (в случае если он захотел его изменить), но он вводит одну из команд
+            waitingNumberGroupForDeleting = false; //ждём от пользователя номер группы, которую нужно удалить, но он вводит одну из команд
+            waitingNumberGroupForFreeMessage = false;//;ждём от пользователя номера, групп, которым нужно отправить свободное соощение, но он вводит одну из команд
+        }
         public static Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
         {
             // Некоторые действия
-            Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(exception));
+            Console.WriteLine(JsonConvert.SerializeObject(exception));
             return Task.CompletedTask;
         }
-        static void Main(string[] args)
+
+        
+        static void Main()
         {
             Console.WriteLine("Запущен бот " + bot.GetMeAsync().Result.FirstName);
 
