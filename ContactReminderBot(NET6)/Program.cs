@@ -26,8 +26,8 @@ namespace ContactReminderBot_NET6_
         //-----------------------------------------------------------------------------------------
 
         private const string fileName = @"groups.json";//поменять месторасположение файла
-        //const long managerChatId = 5117974777;//chat id рабочего телеграмма
-        private const long managerChatId = 347327196; //chat id моего личного телеграма
+        const long managerChatId = 5117974777;//chat id рабочего телеграмма
+        //private const long managerChatId = 347327196; //chat id моего личного телеграма
         private static long groupId;
         private static string[]? numberGroupsForFreeMessage;//номера групп, которым будем отправлять свободное сообщение
 
@@ -77,65 +77,19 @@ namespace ContactReminderBot_NET6_
                     await botClient.SendTextMessageAsync(message.Chat, TextForReminding(message.Text), cancellationToken: cancellationToken);
                     newGroup = false;
                 }
-                else if (message?.Text != null && message.Chat.Id == managerChatId && message.Text == "/remind")//отправляем напоминание 
+                else if (message?.Text != null && message.Chat.Id == managerChatId &&
+                         message.Text == "/remind") //отправляем напоминание 
                 {
                     /* ждём от пользователя каку-то информацию (номер группы, текст шаблона, сообщение), но он вводит текущую команду, поэтому ставим false флагу с ожиданием*/
                     FlagManaging();
 
-                    string outputMessage = "Введи номери груп через кому (1, 2, 3), яким необхідно відправити нагадування про заняття:\n\n";
-                    //await botClient.SendTextMessageAsync(message.Chat, outputMessage + OutputListOgGroups(), cancellationToken: cancellationToken);
-
-                    /*InlineKeyboardMarkup inlineKeyboard = new(new[]
-                    {
-                        // first row
-                        new []
-                        {
-                            InlineKeyboardButton.WithCallbackData(text: "1.1", callbackData: "11"),
-                            InlineKeyboardButton.WithCallbackData(text: "1.2", callbackData: "12"),
-                        },
-                        // second row
-                        new []
-                        {
-                            InlineKeyboardButton.WithCallbackData(text: "2.1", callbackData: "21"),
-                            InlineKeyboardButton.WithCallbackData(text: "2.2", callbackData: "22"),
-                        },
-                    });*/
-
-                   Message sentMessage = await botClient.SendTextMessageAsync(
+                    Message sentMessage = await botClient.SendTextMessageAsync(
                         chatId: message.Chat,
-                        text: "A message with an inline keyboard markup",
-                        replyMarkup: KeyboardWithGroupsName(),
+                        text: "Обери групи, яким необхідно відправити повідомлення про заняття😊",
+                        replyMarkup: KeyboardWithGroupsDays(),
                         cancellationToken: cancellationToken);
 
-                   waitingNumbersForRemind = true;
-                }
-                else if (message?.Text != null && message.Chat.Id == managerChatId && waitingNumbersForRemind && message.Text != "/template" && message.Text !="/start" && message.Text!="/remind")
-                {
-                    string? inputMessage = message.Text;//строка с номерами групп, которым будем напоминать "1,2,3,4,5"
-
-                    if (СheckingForCorrectInput(inputMessage))
-                    {
-                        var arrayNumbers = inputMessage.Split(',');
-
-                        for (var i = 0; i < arrayNumbers.Length; i++)
-                        {
-                            if (int.Parse(arrayNumbers[i]) <= listGroups.Count && int.Parse(arrayNumbers[i]) !=0)
-                            {
-                                group = listGroups[int.Parse(arrayNumbers[i]) - 1];
-                                await botClient.SendTextMessageAsync(message.Chat, $"✅ Повідомлення в групу \"{group.Name}\" успішно відправлено", cancellationToken: cancellationToken);
-                                await botClient.SendTextMessageAsync(group.ID, TextForReminding(group.TextTemplate), cancellationToken: cancellationToken);
-                            }
-                            else
-                            {
-                                await botClient.SendTextMessageAsync(message.Chat, $"❌ Не існує групи з номером {int.Parse(arrayNumbers[i])}", cancellationToken: cancellationToken);
-                            }
-                        }
-                        waitingNumbersForRemind = false;
-                    }
-                    else
-                    {
-                        await botClient.SendTextMessageAsync(message.Chat, $"❌ Повтори введення", cancellationToken: cancellationToken);
-                    }
+                    waitingNumbersForRemind = true;
                 }
                 else if (message?.Text != null && message.Chat.Id == managerChatId && message.Text == "/template")
                 {
@@ -221,32 +175,45 @@ namespace ContactReminderBot_NET6_
                 {
                     await botClient.SendTextMessageAsync(message.Chat, $"Виберіть одну із команд:\n\n/remind - Нагадування про заняття по заданому шаблону\n/template - Перегляд та зміна шаблону\n/message - Відправлення текстового повідомлення\n/delete - Видалення груп", cancellationToken: cancellationToken);
                 }
-
-                /**/
-                var keyboard = new InlineKeyboardMarkup(new[]
-                {
-                    new[]
-                    {
-                        InlineKeyboardButton.WithCallbackData("Погано😞","1"),
-                        InlineKeyboardButton.WithCallbackData("Нормально🙂",$"2"),
-                        InlineKeyboardButton.WithCallbackData("Вау!😀", $"3")
-                    },
-                });
-                await botClient.SendTextMessageAsync(message.Chat,
-                    "Для покращення рекомендацій, будь ласка, оціни фільм🍿", replyMarkup: keyboard);
-
-                /**/
-                
             }
+            
             if (update.CallbackQuery !=null) //если была нажата одна из кнопок c названием группы
             {
-                CallbackQuery callbackQuery = update.CallbackQuery;
-                string? test = callbackQuery.Data;
-                var group111 = listGroups.Where(x => x.Name == test).First(); ;
-                await botClient.SendTextMessageAsync(1255, $"✅ Повідомлення в групу \"{group111.Name}\" успішно відправлено", cancellationToken: cancellationToken);
-                await botClient.SendTextMessageAsync(group111.ID, TextForReminding(group111.TextTemplate), cancellationToken: cancellationToken);
-            }
+                string? data = update.CallbackQuery.Data;
+                data = data.ToLower();
 
+                if (waitingNumbersForRemind)
+                {
+                    if (data is "пт" or "сб" or "нд" or "чт") //пользователь хочет отправить сообщение во все группы, которые учатся в конкретный день
+                    {
+                        foreach (var item in listGroups)
+                        {
+                            if (item.Name.ToLower().Contains(data))
+                            {
+                                await botClient.SendTextMessageAsync(managerChatId,
+                                    $"✅ Повідомлення в групу \"{item.Name}\" успішно відправлено",
+                                    cancellationToken: cancellationToken);
+                                await botClient.SendTextMessageAsync(item.ID, TextForReminding(item.TextTemplate),
+                                    cancellationToken: cancellationToken);
+                            }
+                        }
+                    }
+                    else if (data == "manual") //выводим клавиатуру со списко групп, чтоб пользователь мог выбрать конкретную группу
+                    {
+                        Message sentMessage = await botClient.SendTextMessageAsync(
+                            chatId: managerChatId,
+                            text: "Обери групи, яким необхідно відправити повідомлення про заняття😊",
+                            replyMarkup: KeyboardWithGroups(),
+                            cancellationToken: cancellationToken);
+                    }
+                    else//пользователь отправляет сообщеие конкретной группе
+                    {
+                        group = listGroups.FirstOrDefault(x => x.Name.ToLower() == data);
+                        await botClient.SendTextMessageAsync(managerChatId, $"✅ Повідомлення в групу \"{group.Name}\" успішно відправлено", cancellationToken: cancellationToken);
+                        await botClient.SendTextMessageAsync(group.ID, TextForReminding(group.TextTemplate), cancellationToken: cancellationToken);
+                    }
+                }
+            }
         }
 
         public static bool СheckingForCorrectInput(string? inputMessage)
@@ -280,6 +247,8 @@ namespace ContactReminderBot_NET6_
             string[] smilesForMaintText = {"🔹","🔸","✅","➡️","👉","👨‍💻","✨","🚀","📕","📗","📘","📙","📒","✅","▶️","➡️","📍","🖥","💻","✏️","⭕️","🔵"};
             string[] smilesForWaitiongPhrase = { "", "💙💛", "💙","💛","💜","💚","🧡","❤️","😉","👌","🫶","👐","👍","🤗","😘","💪"};
             
+
+            /*Вынести в файл*/
             string[] greetingsFirstPart = new []
             {
                 "Хелоу!",
@@ -381,27 +350,41 @@ namespace ContactReminderBot_NET6_
             return outputMessage;
         }
 
-        //метод который формирует список клавиш с названиями групп
-        public static InlineKeyboardMarkup KeyboardWithGroupsName()
+        //метод который формирует список клавиш с названиями дней занятия
+        public static InlineKeyboardMarkup KeyboardWithGroupsDays()
         {
-            var array = new InlineKeyboardButton[listGroups.Count][];
-            for (int i = 0; i < listGroups.Count; i++)
+            var array = new InlineKeyboardButton[2][];
+            array[0] = new[]
             {
-                array[i] = new InlineKeyboardButton[1];
-            }
+                //InlineKeyboardButton.WithCallbackData("ЧТ", "ЧТ"),
+                InlineKeyboardButton.WithCallbackData("ПТ", "ПТ"),
+                InlineKeyboardButton.WithCallbackData("СБ", "СБ"),
+                InlineKeyboardButton.WithCallbackData("НД", "НД")
+            };
 
-            
-            for (int i = 0; i < listGroups.Count; i++)
+            array[1] = new[]
             {
-                string callBack = listGroups[i].Name;
-                array[i][0] = InlineKeyboardButton.WithCallbackData(listGroups[i].Name, callBack);
-            }
+                InlineKeyboardButton.WithCallbackData("Обрати в ручному режимі", "manual"),
+            };
 
             InlineKeyboardMarkup inlineKeyboard = new(array);
             return inlineKeyboard;
         }
 
+        //метод который формирует список клавиш с названиями групп занятия
+        public static InlineKeyboardMarkup KeyboardWithGroups()
+        {
+            var array = new InlineKeyboardButton[listGroups.Count][];
+            
+            for (int i = 0; i < listGroups.Count; i++)
+            {
+                array[i] = new InlineKeyboardButton[1];
+                array[i][0] = InlineKeyboardButton.WithCallbackData(listGroups[i].Name, listGroups[i].Name);
+            }
 
+            InlineKeyboardMarkup inlineKeyboard = new(array);
+            return inlineKeyboard;
+        }
         public static void FlagManaging()
         {
             waitingNumberGroupForTemplate = false; //ждём от пользователя номер числа для просмотра шаблона, но он вводит одну из команд
@@ -421,7 +404,6 @@ namespace ContactReminderBot_NET6_
         static void Main()
         {
             Console.WriteLine("Запущен бот " + bot.GetMeAsync().Result.FirstName);
-
             var cts = new CancellationTokenSource();
             var cancellationToken = cts.Token;
             var receiverOptions = new ReceiverOptions();
@@ -431,7 +413,6 @@ namespace ContactReminderBot_NET6_
                 receiverOptions,
                 cancellationToken
             );
-            
             Console.ReadLine();
         }
     }
