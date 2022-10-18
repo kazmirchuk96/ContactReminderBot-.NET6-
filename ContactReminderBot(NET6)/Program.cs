@@ -22,14 +22,16 @@ namespace ContactReminderBot_NET6_
         private static bool waitingNumberGroupForDeleting; //ожидаем, что пользователь введёт номер группы, которую нужно удалить
         private static bool waitingNumberGroupForFreeMessage;//ожидаем, что пользователь введёт номера групп, которым нужно отправить свободное сообщение
         private static bool waitingTextOfFreeMessage;//ожидаем, что пользователь введёт текст своободного сообщения
+        private static bool autopilotMode = false;
 
         //-----------------------------------------------------------------------------------------
 
         private const string fileName = @"groups.json";//поменять месторасположение файла
-        const long managerChatId = 5117974777;//chat id рабочего телеграмма
-        //private const long managerChatId = 347327196; //chat id моего личного телеграма
+        //const long managerChatId = 5117974777;//chat id рабочего телеграмма
+        private const long managerChatId = 347327196; //chat id моего личного телеграма
         private static long groupId;
         private static string[]? numberGroupsForFreeMessage;//номера групп, которым будем отправлять свободное сообщение
+        private static int messageIdtest;
 
         public static async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update,CancellationToken cancellationToken)
         {
@@ -85,9 +87,11 @@ namespace ContactReminderBot_NET6_
 
                     Message sentMessage = await botClient.SendTextMessageAsync(
                         chatId: message.Chat,
-                        text: "Обери групи, яким необхідно відправити повідомлення про заняття😊",
+                        text: "Обирай групи, яким необхідно відправити повідомлення або керуй режимом автопілота😊",
                         replyMarkup: KeyboardWithGroupsDays(),
                         cancellationToken: cancellationToken);
+                     messageIdtest = sentMessage.MessageId;
+                    
 
                     waitingNumbersForRemind = true;
                 }
@@ -205,6 +209,27 @@ namespace ContactReminderBot_NET6_
                             text: "Обери групи, яким необхідно відправити повідомлення про заняття😊",
                             replyMarkup: KeyboardWithGroups(),
                             cancellationToken: cancellationToken);
+                    }
+                    else if (data == "autopiloton")
+                    {
+                        autopilotMode = true;
+                        botClient.EditMessageReplyMarkupAsync(managerChatId, messageIdtest,KeyboardWithGroupsDays(),cancellationToken);//изменение меню
+                        
+                        await botClient.AnswerCallbackQueryAsync(
+                            callbackQueryId: update.CallbackQuery.Id,
+                            text: $"Режим автопілота ввімкнено! Нагадування беру на себе😉",
+                            showAlert: true);
+
+                    }
+                    else if (data == "autopilotoff")
+                    {
+                        autopilotMode = false;
+                        botClient.EditMessageReplyMarkupAsync(managerChatId, messageIdtest, KeyboardWithGroupsDays(), cancellationToken);//изменение меню
+
+                        await botClient.AnswerCallbackQueryAsync(
+                            callbackQueryId: update.CallbackQuery.Id,
+                            text: $"Режим автопілота вимкнено! Тепер ти робиш нагадування самостійно😉",
+                            showAlert: true);
                     }
                     else//пользователь отправляет сообщеие конкретной группе
                     {
@@ -353,20 +378,37 @@ namespace ContactReminderBot_NET6_
         //метод который формирует список клавиш с названиями дней занятия
         public static InlineKeyboardMarkup KeyboardWithGroupsDays()
         {
-            var array = new InlineKeyboardButton[2][];
-            array[0] = new[]
-            {
-                //InlineKeyboardButton.WithCallbackData("ЧТ", "ЧТ"),
-                InlineKeyboardButton.WithCallbackData("ПТ", "ПТ"),
-                InlineKeyboardButton.WithCallbackData("СБ", "СБ"),
-                InlineKeyboardButton.WithCallbackData("НД", "НД")
-            };
+            
+            var array = (autopilotMode)?new InlineKeyboardButton[1][]:new InlineKeyboardButton[3][];
 
-            array[1] = new[]
+            if (autopilotMode)
             {
-                InlineKeyboardButton.WithCallbackData("Обрати в ручному режимі", "manual"),
-            };
+                array[0] = new[]
+                {
+                    InlineKeyboardButton.WithCallbackData("Вимкнути режим автопілота❌", "autopilotoff")
+                };
+            }
+            else
+            {
+                array[0] = new[]
+                {
+                    //InlineKeyboardButton.WithCallbackData("ЧТ", "ЧТ"),
+                    InlineKeyboardButton.WithCallbackData("ПТ", "ПТ"),
+                    InlineKeyboardButton.WithCallbackData("СБ", "СБ"),
+                    InlineKeyboardButton.WithCallbackData("НД", "НД")
+                };
 
+                array[1] = new[]
+                {
+                    InlineKeyboardButton.WithCallbackData("Обрати в ручному режимі", "manual"),
+                    InlineKeyboardButton.WithCallbackData("Відправити всім", "all"),
+                };
+
+                array[2] = new[]
+                {
+                    InlineKeyboardButton.WithCallbackData("Ввімкнути режим автопілота✈️", "autopiloton"),
+                };
+            }
             InlineKeyboardMarkup inlineKeyboard = new(array);
             return inlineKeyboard;
         }
@@ -413,6 +455,7 @@ namespace ContactReminderBot_NET6_
                 receiverOptions,
                 cancellationToken
             );
+
             Console.ReadLine();
         }
     }
