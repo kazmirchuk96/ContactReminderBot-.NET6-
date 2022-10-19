@@ -31,7 +31,8 @@ namespace ContactReminderBot_NET6_
         private const long managerChatId = 347327196; //chat id моего личного телеграма
         private static long groupId;
         private static string[]? numberGroupsForFreeMessage;//номера групп, которым будем отправлять свободное сообщение
-        private static int messageIdtest;
+        private static int messageWithReplyId;//Id сообщения с ReplyKeyboard нужен для изменения сообщения с кнопками
+        private static string textOfFreeMessage = string.Empty;//текст свободного сообщения
 
         public static async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update,CancellationToken cancellationToken)
         {
@@ -84,16 +85,15 @@ namespace ContactReminderBot_NET6_
                 {
                     /* ждём от пользователя каку-то информацию (номер группы, текст шаблона, сообщение), но он вводит текущую команду, поэтому ставим false флагу с ожиданием*/
                     FlagManaging();
+                    waitingNumbersForRemind = true;
 
                     Message sentMessage = await botClient.SendTextMessageAsync(
                         chatId: message.Chat,
                         text: "Обирай групи, яким необхідно відправити повідомлення або керуй режимом автопілота😊",
                         replyMarkup: KeyboardWithGroupsDays(),
                         cancellationToken: cancellationToken);
-                     messageIdtest = sentMessage.MessageId;
-                    
-
-                    waitingNumbersForRemind = true;
+                     messageWithReplyId = sentMessage.MessageId;
+                     
                 }
                 else if (message?.Text != null && message.Chat.Id == managerChatId && message.Text == "/template")
                 {
@@ -116,41 +116,22 @@ namespace ContactReminderBot_NET6_
                 {
                     /* ждём от пользователя каку-то информацию (номер группы, текст шаблона, сообщение), но он вводит текущую команду, поэтому ставим false флагу с ожиданием*/
                     FlagManaging();
-                    string outputMessage = "Введи номери груп через кому (1, 2, 3), яким необхідно відправити повідомлення:\n\n";
-                    await botClient.SendTextMessageAsync(message.Chat, outputMessage + OutputListOgGroups(), cancellationToken: cancellationToken);
-                    waitingNumberGroupForFreeMessage = true;
-                }
-                else if (message?.Text != null && message.Chat.Id == managerChatId && waitingNumberGroupForFreeMessage)
-                {
-                    if (СheckingForCorrectInput(message.Text))
-                    {
-                        numberGroupsForFreeMessage = message.Text.Split(',');
-                        waitingNumberGroupForFreeMessage = false;
-                        waitingTextOfFreeMessage = true;
-                        await botClient.SendTextMessageAsync(message.Chat, "✏️ Введи текст повідомлення, який хочеш відправити", cancellationToken: cancellationToken);
-                    }
-                    else
-                    {
-                        await botClient.SendTextMessageAsync(message.Chat, $"❌ Повтори введення", cancellationToken: cancellationToken);
-                    }
+                    await botClient.SendTextMessageAsync(message.Chat, "✏️ Введи текст повідомлення, який хочеш відправити", cancellationToken: cancellationToken);
+                    waitingTextOfFreeMessage = true;
                 }
                 else if (message?.Text != null && message.Chat.Id == managerChatId && waitingTextOfFreeMessage)
                 {
-                    for (var i = 0; i < numberGroupsForFreeMessage.Length; i++)
-                    {
-                        if (int.Parse(numberGroupsForFreeMessage[i]) <= listGroups.Count && int.Parse(numberGroupsForFreeMessage[i]) != 0)
-                        {
-                            group = listGroups[int.Parse(numberGroupsForFreeMessage[i]) - 1];
-                            await botClient.SendTextMessageAsync(message.Chat, $"✅ Повідомлення в групу \"{group.Name}\" успішно відправлено", cancellationToken: cancellationToken);
-                            await botClient.SendTextMessageAsync(group.ID, message.Text, cancellationToken: cancellationToken);
-                        }
-                        else
-                        {
-                            await botClient.SendTextMessageAsync(message.Chat, $"❌ Не існує групи з номером {int.Parse(numberGroupsForFreeMessage[i])}", cancellationToken: cancellationToken);
-                        }
-                    }
-                    waitingTextOfFreeMessage = false;
+                    waitingNumberGroupForFreeMessage = true;
+                    textOfFreeMessage = message.Text;
+
+                    //ВЫНЕСТИ ТАКИЕ СООБЩЕНИЯ В ОТДЕЛЬНЫЙ МЕТОД
+                    Message sentMessage = await botClient.SendTextMessageAsync(
+                        chatId: message.Chat,
+                        text: "Обирай групи, яким необхідно відправити повідомлення😊",
+                        replyMarkup: KeyboardWithGroupsDays(),
+                        cancellationToken: cancellationToken);
                 }
+              
                 else if (message?.Text != null && message.Chat.Id == managerChatId && waitingNumberGroupForTemplate)
                 {
                     await botClient.SendTextMessageAsync(message.Chat, $"Шаблон цієї групи:", cancellationToken: cancellationToken);
@@ -213,18 +194,17 @@ namespace ContactReminderBot_NET6_
                     else if (data == "autopiloton")
                     {
                         autopilotMode = true;
-                        botClient.EditMessageReplyMarkupAsync(managerChatId, messageIdtest,KeyboardWithGroupsDays(),cancellationToken);//изменение меню
+                        botClient.EditMessageReplyMarkupAsync(managerChatId, messageWithReplyId,KeyboardWithGroupsDays(),cancellationToken);//изменение меню
                         
                         await botClient.AnswerCallbackQueryAsync(
                             callbackQueryId: update.CallbackQuery.Id,
                             text: $"Режим автопілота ввімкнено! Нагадування беру на себе😉",
                             showAlert: true);
-
                     }
                     else if (data == "autopilotoff")
                     {
                         autopilotMode = false;
-                        botClient.EditMessageReplyMarkupAsync(managerChatId, messageIdtest, KeyboardWithGroupsDays(), cancellationToken);//изменение меню
+                        botClient.EditMessageReplyMarkupAsync(managerChatId, messageWithReplyId, KeyboardWithGroupsDays(), cancellationToken);//изменение меню
 
                         await botClient.AnswerCallbackQueryAsync(
                             callbackQueryId: update.CallbackQuery.Id,
@@ -238,9 +218,37 @@ namespace ContactReminderBot_NET6_
                         await botClient.SendTextMessageAsync(group.ID, TextForReminding(group.TextTemplate), cancellationToken: cancellationToken);
                     }
                 }
+                else if (waitingNumberGroupForFreeMessage)
+                {
+                    if (data is "пт" or "сб" or "нд" or "чт") //пользователь хочет отправить сообщение во все группы, которые учатся в конкретный день
+                    {
+                        foreach (var item in listGroups)
+                        {
+                            if (item.Name.ToLower().Contains(data))
+                            {
+                                await botClient.SendTextMessageAsync(managerChatId,
+                                    $"✅ Повідомлення в групу \"{item.Name}\" успішно відправлено",
+                                    cancellationToken: cancellationToken);
+                                await botClient.SendTextMessageAsync(item.ID, textOfFreeMessage,
+                                    cancellationToken: cancellationToken);
+                            }
+                        }
+                    }
+                    else if (data == "all") 
+                    {
+                        foreach (var item in listGroups)
+                        {
+                            await botClient.SendTextMessageAsync(managerChatId,
+                                    $"✅ Повідомлення в групу \"{item.Name}\" успішно відправлено",
+                                    cancellationToken: cancellationToken);
+                                await botClient.SendTextMessageAsync(item.ID, textOfFreeMessage,
+                                    cancellationToken: cancellationToken);
+                        }
+                    }
+
+                }
             }
         }
-
         public static bool СheckingForCorrectInput(string? inputMessage)
         {
             const string allowedSymbols = "01234567890,";
@@ -266,6 +274,7 @@ namespace ContactReminderBot_NET6_
         }
 
         //текст для напоминание, где вместо кодов подставляется соответствующая информация
+        //ВЫНЕСТИ В ОТДЕЛЬНЫЙ КЛАСС/ФАЙЛ
         public static string TextForReminding(string textTamplateWithCodes)
         {
             string[] smilesForGreetings = {"","😀","😁","☺️","😊","🙂","😍","😜","🙃","🤓","😎","🤩","🤖","👾","👻","😺","😻","🙌","🤝","✌️","🤟","✋","🖐","👋","🦾","🐼"};
@@ -376,23 +385,54 @@ namespace ContactReminderBot_NET6_
         }
 
         //метод который формирует список клавиш с названиями дней занятия
+        //ВЫНЕСТИ В ОТДЕЛЬНЫЙ КЛАСС
         public static InlineKeyboardMarkup KeyboardWithGroupsDays()
         {
-            
-            var array = (autopilotMode)?new InlineKeyboardButton[1][]:new InlineKeyboardButton[3][];
+            InlineKeyboardButton[][] array = new InlineKeyboardButton[1][];
+            array[0] = new[]
+            {
+                InlineKeyboardButton.WithCallbackData("Тест", "Тест")
+            };
 
-            if (autopilotMode)
+            if (waitingNumbersForRemind)
             {
-                array[0] = new[]
+                array = (autopilotMode) ? new InlineKeyboardButton[1][] : new InlineKeyboardButton[3][];
+
+                if (autopilotMode)
                 {
-                    InlineKeyboardButton.WithCallbackData("Вимкнути режим автопілота❌", "autopilotoff")
-                };
+                    array[0] = new[]
+                    {
+                        InlineKeyboardButton.WithCallbackData("Вимкнути режим автопілота❌", "autopilotoff")
+                    };
+                }
+                else
+                {
+                    array[0] = new[]
+                    {
+                        //InlineKeyboardButton.WithCallbackData("ЧТ", "ЧТ"),
+                        InlineKeyboardButton.WithCallbackData("ПТ", "ПТ"),
+                        InlineKeyboardButton.WithCallbackData("СБ", "СБ"),
+                        InlineKeyboardButton.WithCallbackData("НД", "НД")
+                    };
+
+                    array[1] = new[]
+                    {
+                        InlineKeyboardButton.WithCallbackData("Обрати в ручному режимі", "manual"),
+                        //InlineKeyboardButton.WithCallbackData("Відправити всім", "all"),
+                    };
+
+                    array[2] = new[]
+                    {
+                        InlineKeyboardButton.WithCallbackData("Ввімкнути режим автопілота✈️", "autopiloton"),
+                    };
+                }
             }
-            else
+            else if (waitingNumberGroupForFreeMessage)
             {
+                array = new InlineKeyboardButton[2][];
                 array[0] = new[]
                 {
-                    //InlineKeyboardButton.WithCallbackData("ЧТ", "ЧТ"),
+                    InlineKeyboardButton.WithCallbackData("ЧТ", "ЧТ"),
                     InlineKeyboardButton.WithCallbackData("ПТ", "ПТ"),
                     InlineKeyboardButton.WithCallbackData("СБ", "СБ"),
                     InlineKeyboardButton.WithCallbackData("НД", "НД")
@@ -400,15 +440,10 @@ namespace ContactReminderBot_NET6_
 
                 array[1] = new[]
                 {
-                    InlineKeyboardButton.WithCallbackData("Обрати в ручному режимі", "manual"),
-                    InlineKeyboardButton.WithCallbackData("Відправити всім", "all"),
-                };
-
-                array[2] = new[]
-                {
-                    InlineKeyboardButton.WithCallbackData("Ввімкнути режим автопілота✈️", "autopiloton"),
+                    InlineKeyboardButton.WithCallbackData("Відправити всім", "all")
                 };
             }
+
             InlineKeyboardMarkup inlineKeyboard = new(array);
             return inlineKeyboard;
         }
