@@ -16,3 +16,4 @@ C:\Users\ikazm\source\repos\ContactReminderBot(NET6)\ContactReminderBot(NET6)\ob
 C:\Users\ikazm\source\repos\ContactReminderBot(NET6)\ContactReminderBot(NET6)\obj\Debug\net6.0\ContactReminderBot(NET6).pdb
 C:\Users\ikazm\source\repos\ContactReminderBot(NET6)\ContactReminderBot(NET6)\obj\Debug\net6.0\ContactReminderBot(NET6).genruntimeconfig.cache
 C:\Users\ikazm\source\repos\ContactReminderBot(NET6)\ContactReminderBot(NET6)\obj\Debug\net6.0\ref\ContactReminderBot(NET6).dll
+C:\Users\ikazm\source\repos\ContactReminderBot(NET6)\ContactReminderBot(NET6)\bin\Debug\net6.0\Inv.Library.dll

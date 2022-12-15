@@ -8,10 +8,19 @@
     ".NETCoreApp,Version=v6.0": {
       "ContactReminderBot(NET6)/1.0.0": {
         "dependencies": {
+          "Invention.Library": "1.0.59",
           "Telegram.Bot": "18.0.0"
         },
         "runtime": {
           "ContactReminderBot(NET6).dll": {}
+        }
+      },
+      "Invention.Library/1.0.59": {
+        "runtime": {
+          "lib/net60/Inv.Library.dll": {
+            "assemblyVersion": "1.0.59.0",
+            "fileVersion": "1.0.59.0"
+          }
         }
       },
       "Newtonsoft.Json/12.0.2": {
@@ -40,6 +49,13 @@
       "type": "project",
       "serviceable": false,
       "sha512": ""
+    },
+    "Invention.Library/1.0.59": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-K8AkGUCqrkmUkvTWjzLYXVTRpay/U7CrRXTXUVUPZqssRqodqKo+hUMhvggc9pq/2OGkhgNzRbOpco6RK+q+9w==",
+      "path": "invention.library/1.0.59",
+      "hashPath": "invention.library.1.0.59.nupkg.sha512"
     },
     "Newtonsoft.Json/12.0.2": {
       "type": "package",

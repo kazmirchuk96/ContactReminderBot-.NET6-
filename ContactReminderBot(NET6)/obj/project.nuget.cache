@@ -1,9 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "8MZZJXHy0kO/xHtkWhXz677029bLF8PhraMJFQHERcXi8hIUd150wDG4Qfnk0yQ/Ti2XXn+cZNayzxOoHwM8lg==",
+  "dgSpecHash": "QUyXtlQkKH1LboQtwI/gQzy2i95pmKeFPXgyUUs9e72fYU4SS29Twq+INuDgoIxJ4FOCXjIryxbSF46Fo2PPBg==",
   "success": true,
   "projectFilePath": "C:\\Users\\ikazm\\source\\repos\\ContactReminderBot(NET6)\\ContactReminderBot(NET6)\\ContactReminderBot(NET6).csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\ikazm\\.nuget\\packages\\invention.library\\1.0.59\\invention.library.1.0.59.nupkg.sha512",
     "C:\\Users\\ikazm\\.nuget\\packages\\newtonsoft.json\\12.0.2\\newtonsoft.json.12.0.2.nupkg.sha512",
     "C:\\Users\\ikazm\\.nuget\\packages\\telegram.bot\\18.0.0\\telegram.bot.18.0.0.nupkg.sha512"
   ],

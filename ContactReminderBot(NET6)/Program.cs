@@ -1,4 +1,6 @@
 ﻿using Newtonsoft.Json;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
 using System.Text.RegularExpressions;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
@@ -27,8 +29,8 @@ namespace ContactReminderBot_NET6_
         //-----------------------------------------------------------------------------------------
 
         private const string fileName = @"groups.json";//поменять месторасположение файла
-        //const long managerChatId = 5117974777;//chat id рабочего телеграмма
-        private const long managerChatId = 347327196; //chat id моего личного телеграма
+        const long managerChatId = 5117974777;//chat id рабочего телеграмма
+        //private const long managerChatId = 347327196; //chat id моего личного телеграма
         private static long groupId;
         private static string[]? numberGroupsForFreeMessage;//номера групп, которым будем отправлять свободное сообщение
         private static int messageWithReplyId;//Id сообщения с ReplyKeyboard нужен для изменения сообщения с кнопками
@@ -131,7 +133,6 @@ namespace ContactReminderBot_NET6_
                         replyMarkup: KeyboardWithGroupsDays(),
                         cancellationToken: cancellationToken);
                 }
-              
                 else if (message?.Text != null && message.Chat.Id == managerChatId && waitingNumberGroupForTemplate)
                 {
                     await botClient.SendTextMessageAsync(message.Chat, $"Шаблон цієї групи:", cancellationToken: cancellationToken);
@@ -245,7 +246,6 @@ namespace ContactReminderBot_NET6_
                                     cancellationToken: cancellationToken);
                         }
                     }
-
                 }
             }
         }
@@ -277,19 +277,45 @@ namespace ContactReminderBot_NET6_
         //ВЫНЕСТИ В ОТДЕЛЬНЫЙ КЛАСС/ФАЙЛ
         public static string TextForReminding(string textTamplateWithCodes)
         {
-            string[] smilesForGreetings = {"","😀","😁","☺️","😊","🙂","😍","😜","🙃","🤓","😎","🤩","🤖","👾","👻","😺","😻","🙌","🤝","✌️","🤟","✋","🖐","👋","🦾","🐼"};
-            string[] smilesForMaintText = {"🔹","🔸","✅","➡️","👉","👨‍💻","✨","🚀","📕","📗","📘","📙","📒","✅","▶️","➡️","📍","🖥","💻","✏️","⭕️","🔵"};
-            string[] smilesForWaitiongPhrase = { "", "💙💛", "💙","💛","💜","💚","🧡","❤️","😉","👌","🫶","👐","👍","🤗","😘","💪"};
-            
+            var smilesForGreetings = new List<string> {"","😀","😁","☺️","😊","🙂","😍","😜","🙃","🤓","😎","🤩","🤖","👾","👻","😺","😻","🙌","🤝","✌️","🤟","✋","🖐","👋","🦾","🐼"};
+            var smilesForMaintText = new List<string> { "🔹","🔸","✅","➡️","👉","👨‍💻","✨","🚀","📕","📗","📘","📙","📒","✅","▶️","➡️","📍","🖥","💻","✏️","⭕️","🔵"};
+            var smilesForWaitiongPhrase = new List<string> { "","💙💛", "💙","💛","💜","💚","🧡","❤️","😉","👌","🫶","👐","👍","🤗","😘","💪"};
+
+            var seasonSmiles = new List<string>();//смайлы которые будут зависеть от сезона 
+
+            int month = DateTime.Today.Month;
+            if (month == 1 || month == 2)//Січень, Лютий
+            {
+                seasonSmiles.AddRange(new List<string> { "❄️", "☃️", "⛄️" });
+            }
+            else if (month == 12)//Грудень
+            {
+                seasonSmiles.AddRange(new List<string> { "🧑", "‍🎄", "🎅", "🎄", "🌲", "❄️", "☃️", "⛄️" });
+            }
+            else if (month == 3 || month == 4 || month == 5)
+            {
+                seasonSmiles.AddRange(new List<string> { "🌸","☀️"});
+            }
+            else if (month == 6 || month == 7 || month == 8)
+            {
+                seasonSmiles.AddRange(new List<string> {"☀️","🍏","🍓","🍎","🐬","🐳","☀️","🍉","🏖","🏝", "🌼","🌻" });
+            }
+            else if (month == 9 || month == 10 || month == 11)
+            {
+                seasonSmiles.AddRange(new List<string> { "☀️","🍂","🍁" });
+            }
+
+            smilesForGreetings.AddRange(seasonSmiles);
+            smilesForMaintText.AddRange(new List<string> (seasonSmiles));
+            smilesForWaitiongPhrase.AddRange(new List<string> (seasonSmiles));
 
             /*Вынести в файл*/
-            string[] greetingsFirstPart = new []
+            var greetingsFirstPart = new List<string>
             {
                 "Хелоу!",
                 "Хелоу, еврібаді!",
                 "Тук-тук!",
                 "Добрий день, everybody!",
-                "Вітаю вас, земляни!",
                 "Алоха!",
                 "Бонжур!",
                 "Привітики!",
@@ -305,10 +331,12 @@ namespace ContactReminderBot_NET6_
                 "Доброго дня!",
                 "Добрий день!",
                 "Hello!",
+                "Привітики!",
+                "Привітулі!",
                 ""
             };
 
-            string[] greetingsSecondPart = new[]
+            var greetingsSecondPart = new List<string>
             {
                 "Я бот-помічник IT Академії CONTACT!",
                 "На зв'язку бот-помічник IT Академії CONTACT!",
@@ -316,7 +344,8 @@ namespace ContactReminderBot_NET6_
                 "Я віртуальний бот-помічник IT Академії CONTACT!",
                 "На зв'язку телеграм-бот IT Академії CONTACT!"
             };
-            string[] waitingPhrases = new[]
+
+            var waitingPhrases = new List<string>
             {
                 "Всіх чекаю!",
                 "Всіх з нетерпінням чекаю!",
@@ -334,10 +363,10 @@ namespace ContactReminderBot_NET6_
             Random rand = new Random();
 
             //замена кода [greetings] на приветствие и смайлик
-            string finalText = textTamplateWithCodes.Replace("[greeting]", greetingsFirstPart[rand.Next(0, greetingsFirstPart.Length)] + " "+ greetingsSecondPart[rand.Next(0, greetingsSecondPart.Length)] + smilesForGreetings[rand.Next(0,smilesForGreetings.Length)]);
+            string finalText = textTamplateWithCodes.Replace("[greeting]", greetingsFirstPart[rand.Next(0, greetingsFirstPart.Count)] + " "+ greetingsSecondPart[rand.Next(0, greetingsSecondPart.Count)] + smilesForGreetings[rand.Next(0,smilesForGreetings.Count)]);
 
             //замена кода [waitingphrase] на фразу и смайлик
-            finalText = finalText.Replace("[waitingphrase]", waitingPhrases[rand.Next(0, waitingPhrases.Length)] + smilesForWaitiongPhrase[rand.Next(0,smilesForWaitiongPhrase.Length)]);
+            finalText = finalText.Replace("[waitingphrase]", waitingPhrases[rand.Next(0, waitingPhrases.Count)] + smilesForWaitiongPhrase[rand.Next(0,smilesForWaitiongPhrase.Count)]);
 
             //замена кода [smile], делаем в цикле, потому что нужно чтоб все смайлики были разными
             finalText = finalText.Replace("[smile]", "smile");//убмраем [], потому что это элемент регулярного выражения
@@ -345,7 +374,7 @@ namespace ContactReminderBot_NET6_
             {
                 /*Регулярное выражение, которое заменяет первое вхождение [smile] на смайлик*/
                 Regex reg = new Regex("smile");
-                finalText = reg.Replace(finalText, smilesForMaintText[rand.Next(0,smilesForMaintText.Length)]+" ", 1);
+                finalText = reg.Replace(finalText, smilesForMaintText[rand.Next(0,smilesForMaintText.Count)]+" ", 1);
             }
 
             //замена кода [date] на завтрашнюю дату
@@ -409,7 +438,7 @@ namespace ContactReminderBot_NET6_
                 {
                     array[0] = new[]
                     {
-                        //InlineKeyboardButton.WithCallbackData("ЧТ", "ЧТ"),
+                        InlineKeyboardButton.WithCallbackData("ЧТ", "ЧТ"),
                         InlineKeyboardButton.WithCallbackData("ПТ", "ПТ"),
                         InlineKeyboardButton.WithCallbackData("СБ", "СБ"),
                         InlineKeyboardButton.WithCallbackData("НД", "НД")
@@ -490,8 +519,29 @@ namespace ContactReminderBot_NET6_
                 receiverOptions,
                 cancellationToken
             );
+            //Hiding Program Icon from Taskbar
+            /*--------------------------------------*/
+            [DllImport("kernel32.dll")]
+            static extern IntPtr GetConsoleWindow();
+
+            [DllImport("user32.dll")]
+            static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+            const int SW_HIDE = 0;
+            const int SW_SHOW = 5;
+
+            var handle = GetConsoleWindow();
+
+            // Hide
+            ShowWindow(handle, SW_HIDE);
+
+            // Show
+            //ShowWindow(handle, SW_SHOW);
+
+            /*--------------------------------------*/
 
             Console.ReadLine();
         }
+       
     }
 }
