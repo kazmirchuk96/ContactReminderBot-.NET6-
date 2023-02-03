@@ -79,7 +79,7 @@ namespace ContactReminderBot_NET6_
                     listGroups[^1].TextTemplate = message.Text;
                     WritingListOfGroupsToFile();//запись списка групп в JsonFile
                     await botClient.SendTextMessageAsync(message.Chat, $"✅ Шаблон успішно доданий! Нижче направляю приклад повідомлення згідно твого шаблону.\n\nПереглядати шаблони груп та змінювати їх ти можеш використовуючи команду /template", cancellationToken: cancellationToken);
-                    await botClient.SendTextMessageAsync(message.Chat, TextForReminding(message.Text), cancellationToken: cancellationToken);
+                    await botClient.SendTextMessageAsync(message.Chat, TextForReminding(message.Text,group.Name), cancellationToken: cancellationToken);
                     newGroup = false;
                 }
                 else if (message?.Text != null && message.Chat.Id == managerChatId &&
@@ -148,7 +148,7 @@ namespace ContactReminderBot_NET6_
                     WritingListOfGroupsToFile();
                     waitingNewTemplate = false;
                     await botClient.SendTextMessageAsync(message.Chat, $"✅ Шаблон успішно змінений! Нижче направляю приклад повідомлення згідно твого шаблону.\n\nВідправити нагадування ти можеш використовуючи команду /remind", cancellationToken: cancellationToken);
-                    await botClient.SendTextMessageAsync(message.Chat, TextForReminding(message.Text), cancellationToken: cancellationToken);
+                    await botClient.SendTextMessageAsync(message.Chat, TextForReminding(message.Text,group.Name), cancellationToken: cancellationToken);
                 }
                 else if (message.Text != null && message.Chat.Id == managerChatId && waitingNumberGroupForDeleting)
                 {
@@ -170,7 +170,7 @@ namespace ContactReminderBot_NET6_
 
                 if (waitingNumbersForRemind)
                 {
-                    if (data is "пт" or "сб" or "нд" or "чт") //пользователь хочет отправить сообщение во все группы, которые учатся в конкретный день
+                    if (data is "пн" or "вт" or "ср" or "чт" or "пт" or "сб" or "нд" or "чт") //пользователь хочет отправить сообщение во все группы, которые учатся в конкретный день
                     {
                         foreach (var item in listGroups)
                         {
@@ -179,7 +179,7 @@ namespace ContactReminderBot_NET6_
                                 await botClient.SendTextMessageAsync(managerChatId,
                                     $"✅ Повідомлення в групу \"{item.Name}\" успішно відправлено",
                                     cancellationToken: cancellationToken);
-                                await botClient.SendTextMessageAsync(item.ID, TextForReminding(item.TextTemplate),
+                                await botClient.SendTextMessageAsync(item.ID, TextForReminding(item.TextTemplate, item.Name),
                                     cancellationToken: cancellationToken);
                             }
                         }
@@ -216,7 +216,7 @@ namespace ContactReminderBot_NET6_
                     {
                         group = listGroups.FirstOrDefault(x => x.Name.ToLower() == data);
                         await botClient.SendTextMessageAsync(managerChatId, $"✅ Повідомлення в групу \"{group.Name}\" успішно відправлено", cancellationToken: cancellationToken);
-                        await botClient.SendTextMessageAsync(group.ID, TextForReminding(group.TextTemplate), cancellationToken: cancellationToken);
+                        await botClient.SendTextMessageAsync(group.ID, TextForReminding(group.TextTemplate,group.Name), cancellationToken: cancellationToken);
                     }
                 }
                 else if (waitingNumberGroupForFreeMessage)
@@ -275,7 +275,7 @@ namespace ContactReminderBot_NET6_
 
         //текст для напоминание, где вместо кодов подставляется соответствующая информация
         //ВЫНЕСТИ В ОТДЕЛЬНЫЙ КЛАСС/ФАЙЛ
-        public static string TextForReminding(string textTamplateWithCodes)
+        public static string TextForReminding(string textTamplateWithCodes, string groupName)
         {
             var smilesForGreetings = new List<string> {"","😀","😁","☺️","😊","🙂","😍","😜","🙃","🤓","😎","🤩","🤖","👾","👻","😺","😻","🙌","🤝","✌️","🤟","✋","🖐","👋","🦾","🐼"};
             var smilesForMaintText = new List<string> { "🔹","🔸","✅","➡️","👉","👨‍💻","✨","🚀","📕","📗","📘","📙","📒","✅","▶️","➡️","📍","🖥","💻","✏️","⭕️","🔵"};
@@ -325,7 +325,7 @@ namespace ContactReminderBot_NET6_
                 "Хола!",
                 "Салют!",
                 "Як настрій?",
-                "Як і обіцяв, ось і я!)",
+                "Привіт! Ось і я!)",
                 "Хай!",
                 "Ватсап!",
                 "Доброго дня!",
@@ -333,31 +333,45 @@ namespace ContactReminderBot_NET6_
                 "Hello!",
                 "Привітики!",
                 "Привітулі!",
+                "Привіт! Як справи?",
                 ""
             };
 
-            var greetingsSecondPart = new List<string>
+            List<string> greetingsSecondPart;
+
+            if (groupName.ToUpper().Contains("KINGDOM"))
             {
-                "Я бот-помічник IT Академії CONTACT!",
-                "На зв'язку бот-помічник IT Академії CONTACT!",
-                "Я телеграм-бот помічник IT Академії CONTACT!",
-                "Я віртуальний бот-помічник IT Академії CONTACT!",
-                "На зв'язку телеграм-бот IT Академії CONTACT!"
-            };
+                greetingsSecondPart = new List<string>
+                {
+                    "Я бот-помічник Kingdom School!",
+                    "На зв'язку бот-помічник Kingdom School!",
+                    "Я телеграм-бот помічник Kingdom School!",
+                    "Я віртуальний бот-помічник Kingdom School!",
+                    "На зв'язку телеграм-бот Kingdom School!"
+                };
+            }
+            else
+            {
+                greetingsSecondPart = new List<string>
+                {
+                    "Я бот-помічник IT Академії CONTACT!",
+                    "На зв'язку бот-помічник IT Академії CONTACT!",
+                    "Я телеграм-бот помічник IT Академії CONTACT!",
+                    "Я віртуальний бот-помічник IT Академії CONTACT!",
+                    "На зв'язку телеграм-бот IT Академії CONTACT!"
+                };
+            }
 
             var waitingPhrases = new List<string>
             {
                 "Всіх чекаю!",
                 "Всіх з нетерпінням чекаю!",
                 "До зустрічі!",
-                "Не забуваємо робити домашку!",
-                "Що там з домашкою?",
-                "Надіюсь, що ви вже зробили домашку!",
-                "Як справи з домашкою?",
                 "До завтра!",
                 "Всім гарного дня!",
-                "Не забудьте про домашку!",
-                "Всіх чекаю на занятті!"
+                "Всіх чекаю на занятті!",
+                "Всіх з нетерпінням чекатимемо!",
+                "Всіх обіймаю і чекаю завтра!"
             };
 
             Random rand = new Random();
@@ -438,6 +452,9 @@ namespace ContactReminderBot_NET6_
                 {
                     array[0] = new[]
                     {
+                        InlineKeyboardButton.WithCallbackData("ПН", "ПН"),
+                        InlineKeyboardButton.WithCallbackData("ВТ", "ВТ"),
+                        InlineKeyboardButton.WithCallbackData("СР", "СР"),
                         InlineKeyboardButton.WithCallbackData("ЧТ", "ЧТ"),
                         InlineKeyboardButton.WithCallbackData("ПТ", "ПТ"),
                         InlineKeyboardButton.WithCallbackData("СБ", "СБ"),
@@ -461,6 +478,9 @@ namespace ContactReminderBot_NET6_
                 array = new InlineKeyboardButton[2][];
                 array[0] = new[]
                 {
+                    InlineKeyboardButton.WithCallbackData("ПН", "ПН"),
+                    InlineKeyboardButton.WithCallbackData("ВТ", "ВТ"),
+                    InlineKeyboardButton.WithCallbackData("СР", "СР"),
                     InlineKeyboardButton.WithCallbackData("ЧТ", "ЧТ"),
                     InlineKeyboardButton.WithCallbackData("ПТ", "ПТ"),
                     InlineKeyboardButton.WithCallbackData("СБ", "СБ"),
