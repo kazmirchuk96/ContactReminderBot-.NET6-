@@ -162,7 +162,6 @@ namespace ContactReminderBot_NET6_
                     await botClient.SendTextMessageAsync(message.Chat, $"Виберіть одну із команд:\n\n/remind - Нагадування про заняття по заданому шаблону\n/template - Перегляд та зміна шаблону\n/message - Відправлення текстового повідомлення\n/delete - Видалення груп", cancellationToken: cancellationToken);
                 }
             }
-            
             if (update.CallbackQuery !=null) //если была нажата одна из кнопок c названием группы
             {
                 string? data = update.CallbackQuery.Data;
@@ -170,11 +169,39 @@ namespace ContactReminderBot_NET6_
 
                 if (waitingNumbersForRemind)
                 {
-                    if (data is "пн" or "вт" or "ср" or "чт" or "пт" or "сб" or "нд" or "чт") //пользователь хочет отправить сообщение во все группы, которые учатся в конкретный день
+                    if (data is "all tomorrow") //пользователь хочет отправить сообщение во все группы, которые учатся в конкретный день
                     {
+                        DateTime dt = DateTime.Now;
+                        string dayOfWeekTomorrow = dt.AddDays(1).DayOfWeek.ToString();
+                        switch (dayOfWeekTomorrow.ToLower())
+                        {
+                            case "monday":
+                                dayOfWeekTomorrow = "пн";
+                                break;
+                            case "tuesday":
+                                dayOfWeekTomorrow = "вт";
+                                break;
+                            case "wednesday":
+                                dayOfWeekTomorrow = "ср";
+                                break;
+                            case "thursday":
+                                dayOfWeekTomorrow = "чт";
+                                break;
+                            case "friday":
+                                dayOfWeekTomorrow = "пт";
+                                break;
+                            case "saturday":
+                                dayOfWeekTomorrow = "сб";
+                                break;
+                            case "sunday":
+                                dayOfWeekTomorrow = "нд";
+                                break;
+
+                        }
+                        //string dayOfWeekTomorrow = 
                         foreach (var item in listGroups)
                         {
-                            if (item.Name.ToLower().Contains(data))
+                            if (item.Name.ToLower().Contains(dayOfWeekTomorrow))
                             {
                                 await botClient.SendTextMessageAsync(managerChatId,
                                     $"✅ Повідомлення в групу \"{item.Name}\" успішно відправлено",
@@ -221,7 +248,26 @@ namespace ContactReminderBot_NET6_
                 }
                 else if (waitingNumberGroupForFreeMessage)
                 {
-                    if (data is "пт" or "сб" or "нд" or "чт") //пользователь хочет отправить сообщение во все группы, которые учатся в конкретный день
+                    var filteredGroup = listGroups;
+
+                    switch (data)
+                    {
+                        case "contactkyiv":
+                            
+                            break;
+                        case "contactkrakiv":
+                            filteredGroup = listGroups.Where(x=>x.Name.ToLower().Contains("краків")).ToList();
+                            break;
+                        case "kingdom":
+                            break;
+                        case "allkrakiv":
+                            break;
+                        default:
+                            filteredGroup = listGroups;
+                            break;
+
+                    }
+                    /*if (data is "пт" or "сб" or "нд" or "чт") //пользователь хочет отправить сообщение во все группы, которые учатся в конкретный день
                     {
                         foreach (var item in listGroups)
                         {
@@ -245,7 +291,7 @@ namespace ContactReminderBot_NET6_
                                 await botClient.SendTextMessageAsync(item.ID, textOfFreeMessage,
                                     cancellationToken: cancellationToken);
                         }
-                    }
+                    }*/
                 }
             }
         }
@@ -284,25 +330,30 @@ namespace ContactReminderBot_NET6_
             var seasonSmiles = new List<string>();//смайлы которые будут зависеть от сезона 
 
             int month = DateTime.Today.Month;
-            if (month == 1 || month == 2)//Січень, Лютий
+            switch (month)
             {
-                seasonSmiles.AddRange(new List<string> { "❄️", "☃️", "⛄️" });
-            }
-            else if (month == 12)//Грудень
-            {
-                seasonSmiles.AddRange(new List<string> { "🧑", "‍🎄", "🎅", "🎄", "🌲", "❄️", "☃️", "⛄️" });
-            }
-            else if (month == 3 || month == 4 || month == 5)
-            {
-                seasonSmiles.AddRange(new List<string> { "🌸","☀️"});
-            }
-            else if (month == 6 || month == 7 || month == 8)
-            {
-                seasonSmiles.AddRange(new List<string> {"☀️","🍏","🍓","🍎","🐬","🐳","☀️","🍉","🏖","🏝", "🌼","🌻" });
-            }
-            else if (month == 9 || month == 10 || month == 11)
-            {
-                seasonSmiles.AddRange(new List<string> { "☀️","🍂","🍁" });
+                case 1://січень
+                case 2://лютий
+                    seasonSmiles.AddRange(new List<string> { "❄️", "☃️", "⛄️" });
+                    break;
+                case 3://березень
+                case 4://квітень
+                case 5://травень
+                    seasonSmiles.AddRange(new List<string> { "🌸","☀️"});
+                    break;
+                case 6://червень
+                case 7://липень
+                case 8://серпень
+                    seasonSmiles.AddRange(new List<string> {"☀️","🍏","🍓","🍎","🐬","🐳","☀️","🍉","🏖","🏝", "🌼","🌻" });
+                    break;
+                case 9://вересень
+                case 10://жовтень
+                case 11://листопад
+                    seasonSmiles.AddRange(new List<string> { "☀️","🍂","🍁" });
+                    break;
+                case 12://грудень
+                    seasonSmiles.AddRange(new List<string> { "🧑", "‍🎄", "🎅", "🎄", "🌲", "❄️", "☃️", "⛄️" });
+                    break;
             }
 
             smilesForGreetings.AddRange(seasonSmiles);
@@ -316,13 +367,11 @@ namespace ContactReminderBot_NET6_
                 "Хелоу, еврібаді!",
                 "Тук-тук!",
                 "Добрий день, everybody!",
-                "Алоха!",
                 "Бонжур!",
                 "Привітики!",
                 "Привіт!",
                 "Всім привіт!",
                 "Вітаю!",
-                "Хола!",
                 "Салют!",
                 "Як настрій?",
                 "Привіт! Ось і я!)",
@@ -432,10 +481,7 @@ namespace ContactReminderBot_NET6_
         public static InlineKeyboardMarkup KeyboardWithGroupsDays()
         {
             InlineKeyboardButton[][] array = new InlineKeyboardButton[1][];
-            array[0] = new[]
-            {
-                InlineKeyboardButton.WithCallbackData("Тест", "Тест")
-            };
+          
 
             if (waitingNumbersForRemind)
             {
@@ -452,13 +498,7 @@ namespace ContactReminderBot_NET6_
                 {
                     array[0] = new[]
                     {
-                        InlineKeyboardButton.WithCallbackData("ПН", "ПН"),
-                        InlineKeyboardButton.WithCallbackData("ВТ", "ВТ"),
-                        InlineKeyboardButton.WithCallbackData("СР", "СР"),
-                        InlineKeyboardButton.WithCallbackData("ЧТ", "ЧТ"),
-                        InlineKeyboardButton.WithCallbackData("ПТ", "ПТ"),
-                        InlineKeyboardButton.WithCallbackData("СБ", "СБ"),
-                        InlineKeyboardButton.WithCallbackData("НД", "НД")
+                        InlineKeyboardButton.WithCallbackData("Всім в кого завтра заняття", "all tomorrow"),
                     };
 
                     array[1] = new[]
@@ -473,23 +513,20 @@ namespace ContactReminderBot_NET6_
                     };
                 }
             }
-            else if (waitingNumberGroupForFreeMessage)
+            else if (waitingNumberGroupForFreeMessage)//переробити на Contact Київ, Contact Краків, KingDom School
             {
                 array = new InlineKeyboardButton[2][];
                 array[0] = new[]
                 {
-                    InlineKeyboardButton.WithCallbackData("ПН", "ПН"),
-                    InlineKeyboardButton.WithCallbackData("ВТ", "ВТ"),
-                    InlineKeyboardButton.WithCallbackData("СР", "СР"),
-                    InlineKeyboardButton.WithCallbackData("ЧТ", "ЧТ"),
-                    InlineKeyboardButton.WithCallbackData("ПТ", "ПТ"),
-                    InlineKeyboardButton.WithCallbackData("СБ", "СБ"),
-                    InlineKeyboardButton.WithCallbackData("НД", "НД")
+                    InlineKeyboardButton.WithCallbackData("CONTACT (Київ)👨‍💻🇺🇦", "contactkyiv"),
+                    InlineKeyboardButton.WithCallbackData("CONTACT (Краків)👨‍💻🇵🇱", "contactkrakiv")
+                    
                 };
 
                 array[1] = new[]
                 {
-                    InlineKeyboardButton.WithCallbackData("Відправити всім", "all")
+                    InlineKeyboardButton.WithCallbackData("KingDom🎨🇵🇱", "kingdom"),
+                    InlineKeyboardButton.WithCallbackData("Всім Краків🇵🇱", "allkrakiv")
                 };
             }
 
