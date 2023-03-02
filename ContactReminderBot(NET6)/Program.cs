@@ -6,7 +6,9 @@ using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using Telegram.Bot.Types.InputFiles;
 using Telegram.Bot.Types.ReplyMarkups;
+using File = System.IO.File;
 
 namespace ContactReminderBot_NET6_
 {
@@ -35,8 +37,12 @@ namespace ContactReminderBot_NET6_
         private static string[]? numberGroupsForFreeMessage;//номера групп, которым будем отправлять свободное сообщение
         private static int messageWithReplyId;//Id сообщения с ReplyKeyboard нужен для изменения сообщения с кнопками
         private static string textOfFreeMessage = string.Empty;//текст свободного сообщения
+        private static string fileNameOfFreeMessage;//фото из свободного сообщения
+        private static string captionOfFreeMessage;//текст свободного сообщения
 
-        public static async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update,CancellationToken cancellationToken)
+
+        public static async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update,
+            CancellationToken cancellationToken)
         {
             var group = new TelegramGroup();
 
@@ -50,9 +56,9 @@ namespace ContactReminderBot_NET6_
                     await System.IO.File.WriteAllTextAsync(fileName, string.Empty, cancellationToken);
                 }
 
-                listGroups = GettingListOfGroups();//запись в лист списка групп из файла
+                listGroups = GettingListOfGroups(); //запись в лист списка групп из файла
 
-                if (message?.Text != null && message.Text.ToLower() == "/start")//введена команда start
+                if (message?.Text != null && message.Text.ToLower() == "/start") //введена команда start
                 {
                     /* ждём от пользователя каку-то информацию (номер группы, текст шаблона, сообщение), но он вводит текущую команду, поэтому ставим false флагу с ожиданием*/
                     FlagManaging();
@@ -62,24 +68,30 @@ namespace ContactReminderBot_NET6_
                         //Проверка на наличие этой же группы в списке, если нет до добавляем
                         if (listGroups.Where(x => x.Name == message.Chat.Title).ToList().Count != 0)
                         {
-                            await botClient.SendTextMessageAsync(managerChatId, $"❌ Група \"{message.Chat.Title}\" вже існує в списку груп\n\nПереглядати шаблони груп та змінювати їх ти можеш використовуючи команду /template");
+                            await botClient.SendTextMessageAsync(managerChatId,
+                                $"❌ Група \"{message.Chat.Title}\" вже існує в списку груп\n\nПереглядати шаблони груп та змінювати їх ти можеш використовуючи команду /template");
                         }
                         else
                         {
                             group = new TelegramGroup(message.Chat.Id, message.Chat.Title);
-                            listGroups.Add(group);//добавляем группу в List
-                            WritingListOfGroupsToFile();//запись списка групп в JsonFile
-                            await botClient.SendTextMessageAsync(managerChatId, $"✅ Група \"{message.Chat.Title}\" успішно додана!\n\nНадішли шаблон повідомлення, використовуючин наступні коди:\n\n[smile] – смайлик\n[greeting] – привітання+смайлик\n[date] – дата завтра\n[waitingphrase] – фраза в кінці повідомлення + смайлик");
+                            listGroups.Add(group); //добавляем группу в List
+                            WritingListOfGroupsToFile(); //запись списка групп в JsonFile
+                            await botClient.SendTextMessageAsync(managerChatId,
+                                $"✅ Група \"{message.Chat.Title}\" успішно додана!\n\nНадішли шаблон повідомлення, використовуючин наступні коди:\n\n[smile] – смайлик\n[greeting] – привітання+смайлик\n[date] – дата завтра\n[waitingphrase] – фраза в кінці повідомлення + смайлик");
                             newGroup = true;
                         }
                     }
                 }
-                else if (message?.Text != null && message.Chat.Id == managerChatId && newGroup)//пользователь добавил группу, ждём от него шаблон для напоминание
+                else if (message?.Text != null && message.Chat.Id == managerChatId &&
+                         newGroup) //пользователь добавил группу, ждём от него шаблон для напоминание
                 {
                     listGroups[^1].TextTemplate = message.Text;
-                    WritingListOfGroupsToFile();//запись списка групп в JsonFile
-                    await botClient.SendTextMessageAsync(message.Chat, $"✅ Шаблон успішно доданий! Нижче направляю приклад повідомлення згідно твого шаблону.\n\nПереглядати шаблони груп та змінювати їх ти можеш використовуючи команду /template", cancellationToken: cancellationToken);
-                    await botClient.SendTextMessageAsync(message.Chat, TextForReminding(message.Text,group.Name), cancellationToken: cancellationToken);
+                    WritingListOfGroupsToFile(); //запись списка групп в JsonFile
+                    await botClient.SendTextMessageAsync(message.Chat,
+                        $"✅ Шаблон успішно доданий! Нижче направляю приклад повідомлення згідно твого шаблону.\n\nПереглядати шаблони груп та змінювати їх ти можеш використовуючи команду /template",
+                        cancellationToken: cancellationToken);
+                    await botClient.SendTextMessageAsync(message.Chat, TextForReminding(message.Text, group.Name),
+                        cancellationToken: cancellationToken);
                     newGroup = false;
                 }
                 else if (message?.Text != null && message.Chat.Id == managerChatId &&
@@ -94,8 +106,8 @@ namespace ContactReminderBot_NET6_
                         text: "Обирай групи, яким необхідно відправити повідомлення або керуй режимом автопілота😊",
                         replyMarkup: KeyboardWithGroupsDays(),
                         cancellationToken: cancellationToken);
-                     messageWithReplyId = sentMessage.MessageId;
-                     
+                    messageWithReplyId = sentMessage.MessageId;
+
                 }
                 else if (message?.Text != null && message.Chat.Id == managerChatId && message.Text == "/template")
                 {
@@ -103,7 +115,8 @@ namespace ContactReminderBot_NET6_
                     FlagManaging();
 
                     string outputMessage = "Введи номер групи шаблон якої ти хочеш переглянути/змінити:\n\n";
-                    await botClient.SendTextMessageAsync(message.Chat, outputMessage + OutputListOgGroups(), cancellationToken: cancellationToken);
+                    await botClient.SendTextMessageAsync(message.Chat, outputMessage + OutputListOgGroups(),
+                        cancellationToken: cancellationToken);
                     waitingNumberGroupForTemplate = true;
                 }
                 else if (message?.Text != null && message.Chat.Id == managerChatId && message.Text == "/delete")
@@ -111,21 +124,41 @@ namespace ContactReminderBot_NET6_
                     /* ждём от пользователя каку-то информацию (номер группы, текст шаблона, сообщение), но он вводит текущую команду, поэтому ставим false флагу с ожиданием*/
                     FlagManaging();
                     string outputMessage = "Введи номер групи, яку ти хочеш видалити:\n\n";
-                    await botClient.SendTextMessageAsync(message.Chat, outputMessage + OutputListOgGroups(), cancellationToken: cancellationToken);
+                    await botClient.SendTextMessageAsync(message.Chat, outputMessage + OutputListOgGroups(),
+                        cancellationToken: cancellationToken);
                     waitingNumberGroupForDeleting = true;
                 }
-                else if (message?.Text != null && message.Chat.Id == managerChatId && message.Text == "/message")//отправка свободного сообщения в группы
+                else if ((message?.Text != null && message.Chat.Id == managerChatId &&
+                          message.Text == "/message")) //отправка свободного сообщения в группы
                 {
                     /* ждём от пользователя каку-то информацию (номер группы, текст шаблона, сообщение), но он вводит текущую команду, поэтому ставим false флагу с ожиданием*/
                     FlagManaging();
-                    await botClient.SendTextMessageAsync(message.Chat, "✏️ Введи текст повідомлення, який хочеш відправити", cancellationToken: cancellationToken);
+                    await botClient.SendTextMessageAsync(message.Chat, "✏️ Введи повідомлення, яке хочеш відправити",
+                        cancellationToken: cancellationToken);
                     waitingTextOfFreeMessage = true;
                 }
-                else if (message?.Text != null && message.Chat.Id == managerChatId && waitingTextOfFreeMessage)
+                else if ((message?.Text != null || message.Type == MessageType.Photo) && message.Chat.Id == managerChatId && waitingTextOfFreeMessage)
                 {
                     waitingNumberGroupForFreeMessage = true;
                     textOfFreeMessage = message.Text;
 
+                    if (message.Type == MessageType.Photo)
+                    {
+                        var photo = message.Photo.LastOrDefault();
+                        captionOfFreeMessage = (message.Caption == null)?string.Empty:message.Caption;
+                        if (photo == null)
+                        {
+                            return;
+                        }
+
+                        var fileId = photo.FileId;
+                        var file = await botClient.GetFileAsync(fileId);
+                        using (var saveImageStream = new FileStream("image.png", FileMode.Create))
+                        {
+                            await botClient.DownloadFileAsync(file.FilePath, saveImageStream);
+                        }
+                    }
+                    captionOfFreeMessage = message.Caption;
                     //ВЫНЕСТИ ТАКИЕ СООБЩЕНИЯ В ОТДЕЛЬНЫЙ МЕТОД
                     Message sentMessage = await botClient.SendTextMessageAsync(
                         chatId: message.Chat,
@@ -135,9 +168,13 @@ namespace ContactReminderBot_NET6_
                 }
                 else if (message?.Text != null && message.Chat.Id == managerChatId && waitingNumberGroupForTemplate)
                 {
-                    await botClient.SendTextMessageAsync(message.Chat, $"Шаблон цієї групи:", cancellationToken: cancellationToken);
-                    await botClient.SendTextMessageAsync(message.Chat, listGroups[int.Parse(message.Text)-1].TextTemplate, cancellationToken: cancellationToken);
-                    await botClient.SendTextMessageAsync(message.Chat, $"Для зміни шаблону відправ у відповідь новий шаблон повідомлення, використовуючин наступні коди:\n\n[smile] – смайлик\n[greeting] – привітання+смайлик\n[date] – дата завтра\n[waitingphrase] – фраза в кінці повідомлення + смайлик", cancellationToken: cancellationToken);
+                    await botClient.SendTextMessageAsync(message.Chat, $"Шаблон цієї групи:",
+                        cancellationToken: cancellationToken);
+                    await botClient.SendTextMessageAsync(message.Chat,
+                        listGroups[int.Parse(message.Text) - 1].TextTemplate, cancellationToken: cancellationToken);
+                    await botClient.SendTextMessageAsync(message.Chat,
+                        $"Для зміни шаблону відправ у відповідь новий шаблон повідомлення, використовуючин наступні коди:\n\n[smile] – смайлик\n[greeting] – привітання+смайлик\n[date] – дата завтра\n[waitingphrase] – фраза в кінці повідомлення + смайлик",
+                        cancellationToken: cancellationToken);
                     waitingNumberGroupForTemplate = false;
                     waitingNewTemplate = true;
                     groupId = listGroups[int.Parse(message.Text) - 1].ID;
@@ -147,25 +184,34 @@ namespace ContactReminderBot_NET6_
                     listGroups.First(x => x.ID == groupId).TextTemplate = message.Text;
                     WritingListOfGroupsToFile();
                     waitingNewTemplate = false;
-                    await botClient.SendTextMessageAsync(message.Chat, $"✅ Шаблон успішно змінений! Нижче направляю приклад повідомлення згідно твого шаблону.\n\nВідправити нагадування ти можеш використовуючи команду /remind", cancellationToken: cancellationToken);
-                    await botClient.SendTextMessageAsync(message.Chat, TextForReminding(message.Text,group.Name), cancellationToken: cancellationToken);
+                    await botClient.SendTextMessageAsync(message.Chat,
+                        $"✅ Шаблон успішно змінений! Нижче направляю приклад повідомлення згідно твого шаблону.\n\nВідправити нагадування ти можеш використовуючи команду /remind",
+                        cancellationToken: cancellationToken);
+                    await botClient.SendTextMessageAsync(message.Chat, TextForReminding(message.Text, group.Name),
+                        cancellationToken: cancellationToken);
                 }
                 else if (message.Text != null && message.Chat.Id == managerChatId && waitingNumberGroupForDeleting)
                 {
                     listGroups.Remove(listGroups[int.Parse(message.Text) - 1]);
                     waitingNumberGroupForDeleting = false;
                     WritingListOfGroupsToFile();
-                    await botClient.SendTextMessageAsync(message.Chat, $"✅ Група успішно видалена", cancellationToken: cancellationToken);
+                    await botClient.SendTextMessageAsync(message.Chat, $"✅ Група успішно видалена",
+                        cancellationToken: cancellationToken);
                 }
                 else if (message.Text != null && message.Chat.Id == managerChatId)
                 {
-                    await botClient.SendTextMessageAsync(message.Chat, $"Виберіть одну із команд:\n\n/remind - Нагадування про заняття по заданому шаблону\n/template - Перегляд та зміна шаблону\n/message - Відправлення текстового повідомлення\n/delete - Видалення груп", cancellationToken: cancellationToken);
+                    await botClient.SendTextMessageAsync(message.Chat,
+                        $"Виберіть одну із команд:\n\n/remind - Нагадування про заняття по заданому шаблону\n/template - Перегляд та зміна шаблону\n/message - Відправлення текстового повідомлення\n/delete - Видалення груп",
+                        cancellationToken: cancellationToken);
                 }
             }
-            if (update.CallbackQuery !=null) //если была нажата одна из кнопок c названием группы
+
+            if (update.CallbackQuery != null) //если была нажата одна из кнопок c названием группы
             {
-                string? data = update.CallbackQuery.Data;
-                data = data.ToLower();
+                var data = update.CallbackQuery.Data; // Отримані значення змінних
+
+                //var captionOfFreeMessageValue = "";
+
 
                 if (waitingNumbersForRemind)
                 {
@@ -198,6 +244,7 @@ namespace ContactReminderBot_NET6_
                                 break;
 
                         }
+
                         //string dayOfWeekTomorrow = 
                         foreach (var item in listGroups)
                         {
@@ -206,12 +253,14 @@ namespace ContactReminderBot_NET6_
                                 await botClient.SendTextMessageAsync(managerChatId,
                                     $"✅ Повідомлення в групу \"{item.Name}\" успішно відправлено",
                                     cancellationToken: cancellationToken);
-                                await botClient.SendTextMessageAsync(item.ID, TextForReminding(item.TextTemplate, item.Name),
+                                await botClient.SendTextMessageAsync(item.ID,
+                                    TextForReminding(item.TextTemplate, item.Name),
                                     cancellationToken: cancellationToken);
                             }
                         }
                     }
-                    else if (data == "manual") //выводим клавиатуру со списко групп, чтоб пользователь мог выбрать конкретную группу
+                    else if
+                        (data == "manual") //выводим клавиатуру со списко групп, чтоб пользователь мог выбрать конкретную группу
                     {
                         Message sentMessage = await botClient.SendTextMessageAsync(
                             chatId: managerChatId,
@@ -222,8 +271,9 @@ namespace ContactReminderBot_NET6_
                     else if (data == "autopiloton")
                     {
                         autopilotMode = true;
-                        botClient.EditMessageReplyMarkupAsync(managerChatId, messageWithReplyId,KeyboardWithGroupsDays(),cancellationToken);//изменение меню
-                        
+                        botClient.EditMessageReplyMarkupAsync(managerChatId, messageWithReplyId,
+                            KeyboardWithGroupsDays(), cancellationToken); //изменение меню
+
                         await botClient.AnswerCallbackQueryAsync(
                             callbackQueryId: update.CallbackQuery.Id,
                             text: $"Режим автопілота ввімкнено! Нагадування беру на себе😉",
@@ -232,18 +282,22 @@ namespace ContactReminderBot_NET6_
                     else if (data == "autopilotoff")
                     {
                         autopilotMode = false;
-                        botClient.EditMessageReplyMarkupAsync(managerChatId, messageWithReplyId, KeyboardWithGroupsDays(), cancellationToken);//изменение меню
+                        botClient.EditMessageReplyMarkupAsync(managerChatId, messageWithReplyId,
+                            KeyboardWithGroupsDays(), cancellationToken); //изменение меню
 
                         await botClient.AnswerCallbackQueryAsync(
                             callbackQueryId: update.CallbackQuery.Id,
                             text: $"Режим автопілота вимкнено! Тепер ти робиш нагадування самостійно😉",
                             showAlert: true);
                     }
-                    else//пользователь отправляет сообщеие конкретной группе
+                    else //пользователь отправляет сообщеие конкретной группе
                     {
                         group = listGroups.FirstOrDefault(x => x.Name.ToLower() == data);
-                        await botClient.SendTextMessageAsync(managerChatId, $"✅ Повідомлення в групу \"{group.Name}\" успішно відправлено", cancellationToken: cancellationToken);
-                        await botClient.SendTextMessageAsync(group.ID, TextForReminding(group.TextTemplate,group.Name), cancellationToken: cancellationToken);
+                        await botClient.SendTextMessageAsync(managerChatId,
+                            $"✅ Повідомлення в групу \"{group.Name}\" успішно відправлено",
+                            cancellationToken: cancellationToken);
+                        await botClient.SendTextMessageAsync(group.ID, TextForReminding(group.TextTemplate, group.Name),
+                            cancellationToken: cancellationToken);
                     }
                 }
                 else if (waitingNumberGroupForFreeMessage)
@@ -253,49 +307,59 @@ namespace ContactReminderBot_NET6_
                     switch (data)
                     {
                         case "contactkyiv":
-                            
+                            filteredGroup = listGroups.Where(x =>
+                                !x.Name.ToLower().Contains("краків") && !x.Name.ToLower().Contains("kingdom")).ToList();
                             break;
                         case "contactkrakiv":
-                            filteredGroup = listGroups.Where(x=>x.Name.ToLower().Contains("краків")).ToList();
+                            filteredGroup = listGroups.Where(x => x.Name.ToLower().Contains("краків")).ToList();
                             break;
                         case "kingdom":
+                            filteredGroup = listGroups.Where(x => x.Name.ToLower().Contains("kingdom")).ToList();
                             break;
                         case "allkrakiv":
+                            filteredGroup = listGroups.Where(x =>
+                                x.Name.ToLower().Contains("kingdom") || x.Name.ToLower().Contains("краків")).ToList();
+                            break;
+                        case "test":
+                            filteredGroup = listGroups.Where(x => x.Name.Contains("Тестовая группа")).ToList();
                             break;
                         default:
-                            filteredGroup = listGroups;
+                            filteredGroup = listGroups.Where(x=>x.Name.Contains("Тестовая группа")).ToList();
                             break;
+                    }
 
-                    }
-                    /*if (data is "пт" or "сб" or "нд" or "чт") //пользователь хочет отправить сообщение во все группы, которые учатся в конкретный день
+                    foreach (var item in filteredGroup)
                     {
-                        foreach (var item in listGroups)
+                        if (File.Exists("image.png"))
                         {
-                            if (item.Name.ToLower().Contains(data))
+
+                            // Відправка файлу користувачу
+                            using (var fileStream = new FileStream("image.png", FileMode.Open, FileAccess.Read,
+                                       FileShare.Read))
                             {
-                                await botClient.SendTextMessageAsync(managerChatId,
-                                    $"✅ Повідомлення в групу \"{item.Name}\" успішно відправлено",
-                                    cancellationToken: cancellationToken);
-                                await botClient.SendTextMessageAsync(item.ID, textOfFreeMessage,
-                                    cancellationToken: cancellationToken);
+                                var inputFile = new InputOnlineFile(fileStream, "image.png");
+                                botClient.SendPhotoAsync(item.ID, inputFile, captionOfFreeMessage).Wait();
                             }
+
+
                         }
-                    }
-                    else if (data == "all") 
-                    {
-                        foreach (var item in listGroups)
+                        else
                         {
-                            await botClient.SendTextMessageAsync(managerChatId,
-                                    $"✅ Повідомлення в групу \"{item.Name}\" успішно відправлено",
-                                    cancellationToken: cancellationToken);
-                                await botClient.SendTextMessageAsync(item.ID, textOfFreeMessage,
-                                    cancellationToken: cancellationToken);
+                            await botClient.SendTextMessageAsync(item.ID, textOfFreeMessage,
+                                cancellationToken: cancellationToken);
                         }
-                    }*/
+
+                        await botClient.SendTextMessageAsync(managerChatId,
+                            $"✅ Повідомлення в групу \"{item.Name}\" успішно відправлено",
+                            cancellationToken: cancellationToken);
+                    }
+
+                    File.Delete("image.png");
                 }
             }
         }
-        public static bool СheckingForCorrectInput(string? inputMessage)
+
+        /*public static bool СheckingForCorrectInput(string? inputMessage)
         {
             const string allowedSymbols = "01234567890,";
             bool inputMessageIsCorrect = true;
@@ -317,7 +381,7 @@ namespace ContactReminderBot_NET6_
                 }
             }
             return inputMessageIsCorrect;
-        }
+        }*/
 
         //текст для напоминание, где вместо кодов подставляется соответствующая информация
         //ВЫНЕСТИ В ОТДЕЛЬНЫЙ КЛАСС/ФАЙЛ
@@ -480,9 +544,9 @@ namespace ContactReminderBot_NET6_
         //ВЫНЕСТИ В ОТДЕЛЬНЫЙ КЛАСС
         public static InlineKeyboardMarkup KeyboardWithGroupsDays()
         {
+           // fileNameOfFreeMessage = fileNameOfFreeMessage == null ? "noname" : fileNameOfFreeMessage;
             InlineKeyboardButton[][] array = new InlineKeyboardButton[1][];
-          
-
+            
             if (waitingNumbersForRemind)
             {
                 array = (autopilotMode) ? new InlineKeyboardButton[1][] : new InlineKeyboardButton[3][];
@@ -498,7 +562,7 @@ namespace ContactReminderBot_NET6_
                 {
                     array[0] = new[]
                     {
-                        InlineKeyboardButton.WithCallbackData("Всім в кого завтра заняття", "all tomorrow"),
+                        InlineKeyboardButton.WithCallbackData("Всім, в кого завтра заняття", "all tomorrow"),
                     };
 
                     array[1] = new[]
@@ -518,15 +582,16 @@ namespace ContactReminderBot_NET6_
                 array = new InlineKeyboardButton[2][];
                 array[0] = new[]
                 {
-                    InlineKeyboardButton.WithCallbackData("CONTACT (Київ)👨‍💻🇺🇦", "contactkyiv"),
-                    InlineKeyboardButton.WithCallbackData("CONTACT (Краків)👨‍💻🇵🇱", "contactkrakiv")
+                    InlineKeyboardButton.WithCallbackData("CONTACT (Київ)👨‍💻🇺🇦", $"contactkyiv"),
+                    InlineKeyboardButton.WithCallbackData("CONTACT (Краків)👨‍💻🇵🇱", $"contactkrakiv")
                     
                 };
 
                 array[1] = new[]
                 {
-                    InlineKeyboardButton.WithCallbackData("KingDom🎨🇵🇱", "kingdom"),
-                    InlineKeyboardButton.WithCallbackData("Всім Краків🇵🇱", "allkrakiv")
+                    InlineKeyboardButton.WithCallbackData("KingDom🎨🇵🇱", $"kingdom"),
+                    InlineKeyboardButton.WithCallbackData("Всім Краків🇵🇱", $"allkrakiv"),
+                    InlineKeyboardButton.WithCallbackData("Тестова група", $"test")
                 };
             }
 
@@ -590,7 +655,7 @@ namespace ContactReminderBot_NET6_
             var handle = GetConsoleWindow();
 
             // Hide
-            ShowWindow(handle, SW_HIDE);
+            //ShowWindow(handle, SW_HIDE);
 
             // Show
             //ShowWindow(handle, SW_SHOW);
